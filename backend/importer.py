@@ -11,6 +11,7 @@ COLUMN_ALIASES = {
     "name":          ["name", "group name", "practice name", "practice"],
     "address":       ["address"],  # may be assembled from parts — handled separately
     "phone":         ["phone", "phone number"],
+    "affiliation":   ["affiliation", "group", "network", "system"],
     "num_mds":       ["num_mds", "physicians", "mds", "doctors", "num mds"],
     "num_apps":      ["num_apps", "apps", "num apps", "app count"],
     "num_locations": ["num_locations", "total practice locations", "locations", "num locations"],
@@ -89,10 +90,11 @@ def import_file(file_bytes: bytes, filename: str, db: Session) -> dict:
         record = {
             "name":          name,
             "address":       address,
-            "phone":         _clean(row.get(col_map.get("phone", "__missing__"), "")),
-            "num_mds":       _int(row.get(col_map.get("num_mds",       "__missing__"), None), 0),
-            "num_apps":      _int(row.get(col_map.get("num_apps",      "__missing__"), None), 0),
-            "num_locations": _int(row.get(col_map.get("num_locations", "__missing__"), None), 1),
+            "phone":         _clean(row.get(col_map.get("phone",        "__missing__"), "")),
+            "affiliation":   _clean(row.get(col_map.get("affiliation",  "__missing__"), "")) or None,
+            "num_mds":       _int(row.get(col_map.get("num_mds",        "__missing__"), None), 0),
+            "num_apps":      _int(row.get(col_map.get("num_apps",       "__missing__"), None), 0),
+            "num_locations": _int(row.get(col_map.get("num_locations",  "__missing__"), None), 1),
             "lat":           None,
             "lng":           None,
         }
@@ -141,6 +143,7 @@ def _read_file(file_bytes, filename: str) -> pd.DataFrame:
 
     header_row = _find_header_row(raw)
 
+    file_bytes.seek(0)
     if is_excel:
         return pd.read_excel(file_bytes, header=header_row, dtype=str)
     else:

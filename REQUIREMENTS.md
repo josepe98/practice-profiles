@@ -1,66 +1,338 @@
-# Practice Profiles — Product Requirements
+# Practice Profiles — Requirements
 
-## Vision
+## Purpose
 
-A lightweight internal tool for analyzing healthcare practice landscapes within a drive-time catchment area. Given a set of practices and an origin location, the app answers: *Which practices are nearby, how long does it take to reach them, and how large is the patient population in that catchment?*
+An internal strategic tool for Children's Healthcare of Atlanta (CHOA) / The Children's Care Network (TCCN) to:
 
-Primary use case: evaluating market opportunity or competitive density in a metro area (e.g., Atlanta MSA) before opening, acquiring, or repositioning a practice.
+1. Visualize the pediatric primary care landscape across Metro Atlanta
+2. Analyze catchment areas and population coverage for existing practices
+3. Identify market gaps — underserved populations not well served by CHOA/TCCN
 
----
-
-## Current Features
-
-### Practice Data Management
-- Import practices from CSV or Excel (`.csv`, `.xlsx`)
-- Required fields: name, address; optional: phone, # MDs, # APPs, # locations, lat/lng
-- Download a blank CSV template from the app
-- Auto-geocode addresses on import via Mapbox Geocoding API
-- Skip geocoding for rows where lat/lng are already provided
-- Re-geocode individual practices after import
-
-### Map Visualization
-- Interactive Mapbox GL JS map centered on the imported dataset
-- Color-coded markers: origin (red), within filter (blue), outside filter (gray)
-- Drive-time isochrone polygon overlaid on the map
-- Driving route lines from origin to each in-range practice
-
-### Origin Selection
-- Click any map marker to set it as the origin practice
-- Origin banner shows the selected practice name
-- Search bar to find and fly to a specific practice by name
-
-### Distance & Drive-Time Filtering
-- Filter by max miles, max drive minutes, or both
-- Powered by Mapbox Matrix API; batches targets in groups of 24
-- Unreachable practices (null routes) are excluded from results
-- Sidebar lists filtered practices sorted by distance, showing miles and drive minutes
-
-### Catchment Population Analysis
-- After applying a filter, the app fetches census tract boundaries from the Census TIGER API within the isochrone bounding box
-- Each tract is intersected with the isochrone polygon using Shapely (areal interpolation)
-- Tract population is weighted by `intersection_area / tract_area`
-- Census ACS 5-year estimates (2022) queried per county via B01001 (Sex by Age)
-- Population panel shows: total population, under-18 subtotal, and age bands (under 5, 5–9, 10–14, 15–17)
-- Subtitle displays the number of census tracts included
+The app tracks both own-network practices (Children's, TCCN) and competitor practices (Wellstar, Piedmont) to support network planning and expansion decisions.
 
 ---
 
-## Roadmap
+## Competitive Context
 
-### Near-term
-- [ ] Filter and display practices by specialty or practice type
-- [ ] Show staffing summary (total MDs, APPs) for filtered practices in the sidebar
-- [ ] Export filtered results to CSV (practice name, address, distance, drive time)
-- [ ] Persist origin + filter settings across page refreshes (localStorage)
+| Affiliation | Relationship | Strategic posture |
+|---|---|---|
+| Children's / TCCN | Own network | Primary planning unit |
+| Wellstar | Primary competitor | Aggressive pediatric expansion; direct threat to own-network market share end-to-end |
+| Piedmont | Secondary competitor / partial partner | Smaller pediatric footprint; refers complex cases to CHOA hospitals; lower urgency |
+| Wellstar Peds Specialty | Competitor (tracked, hidden from map) | Specialty competitor; tracked in DB but de-emphasized in UI |
 
-### Medium-term
-- [ ] Expand age bands to cover the full population pyramid (0–85+)
-- [ ] Side-by-side comparison mode: run two origins simultaneously, highlight overlap
-- [ ] Choropleth layer: color census tracts by population density within the isochrone
-- [ ] Manual practice entry form (add/edit/delete without CSV import)
+---
 
-### Longer-term
-- [ ] Multi-origin analysis: identify underserved areas with no nearby practices
-- [ ] Drive-time scoring: rank candidate sites by population coverage
-- [ ] Integration with additional data sources (e.g., CMS provider data, NPPES)
-- [ ] User accounts / saved scenarios
+## Tech Stack
+
+- **Backend**: Python 3.9 + FastAPI + SQLAlchemy + SQLite
+- **Frontend**: React + Vite + Mapbox GL JS
+- **Routing**: Mapbox Matrix API (drive times + distances, batched in groups of 24)
+- **Geocoding**: Mapbox Geocoding API
+- **Isochrones**: Mapbox Isochrone API
+- **Population data**: US Census ACS 5-year estimates (B01001 age by sex, B19013 median HH income, B19001 HH income brackets)
+- **Tract boundaries**: Census TIGER/Web API (ACS 2022, MapServer layer 8)
+- **Database**: SQLite (single file, auto-created as `practices.db`)
+
+### Running ports
+- Backend: **8001** (uvicorn)
+- Frontend: **5174** (Vite dev server)
+
+---
+
+## Study Area
+
+**Atlanta-Sandy Springs-Alpharetta, GA MSA** (official OMB definition) — 29 Georgia counties:
+
+Barrow, Bartow, Butts, Carroll, Cherokee, Clayton, Cobb, Coweta, Dawson, DeKalb, Douglas, Fayette, Forsyth, Fulton, Gwinnett, Haralson, Heard, Henry, Jasper, Lamar, Meriwether, Morgan, Newton, Paulding, Pickens, Pike, Rockdale, Spalding, Walton
+
+Approximately 1,200 census tracts.
+
+---
+
+## Data Model
+
+### `practices` table
+
+| Column | Type | Notes |
+|---|---|---|
+| id | INTEGER PK | Auto |
+| name | TEXT | Practice name |
+| address | TEXT | Full address |
+| phone | TEXT | Optional |
+| num_mds | INTEGER | MD/DO provider count |
+| num_apps | INTEGER | APP (NP/PA) count |
+| num_locations | INTEGER | Default 1 |
+| lat / lng | REAL | Geocoded by Mapbox |
+| geocoded | INTEGER | 0/1 flag |
+| affiliation | TEXT | Children's, TCCN, Wellstar, Piedmont, Wellstar Peds Specialty |
+| created_at / updated_at | TEXT | Timestamps |
+
+### `tract_demographics` table *(planned — analytics precompute)*
+
+| Column | Type | Notes |
+|---|---|---|
+| geoid | TEXT PK | Census tract GEOID (11-digit) |
+| lat / lng | REAL | Tract centroid |
+| state_fips | TEXT | e.g. "13" (Georgia) |
+| county_fips | TEXT | e.g. "121" (Fulton) |
+| total_pop | INTEGER | ACS total population |
+| under_18 | INTEGER | Sum of under-18 age bands |
+| under_5 | INTEGER | Under-5 population |
+| income_median | INTEGER | Median household income |
+
+### `tract_distances` table *(planned — analytics precompute)*
+
+| Column | Type | Notes |
+|---|---|---|
+| geoid | TEXT | → tract_demographics.geoid |
+| practice_id | INTEGER | → practices.id |
+| miles | REAL | Drive distance |
+| drive_minutes | REAL | Drive time via Mapbox Matrix |
+| PRIMARY KEY | (geoid, practice_id) | |
+
+---
+
+## API Endpoints
+
+### Existing
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/practices` | List all practices |
+| GET | `/api/practices/{id}` | Single practice |
+| POST | `/api/practices` | Create practice |
+| PUT | `/api/practices/{id}` | Update practice |
+| DELETE | `/api/practices/{id}` | Delete practice |
+| POST | `/api/import/csv` | Upload CSV/Excel, geocode, bulk insert |
+| GET | `/api/import/template` | Download blank CSV template |
+| POST | `/api/distances` | Origin + targets → miles + drive_minutes |
+| POST | `/api/geocode/{id}` | Re-geocode a practice |
+| POST | `/api/isochrone` | Origin + filter → isochrone polygon (GeoJSON) |
+| POST | `/api/population` | Isochrone → weighted population by census tract |
+| POST | `/api/population/tracts` | Isochrone → per-tract population + income breakdown |
+
+### Planned (Analytics)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/analytics/precompute` | Batch job: fetch MSA tracts → ACS demographics → Mapbox distances → store |
+| GET | `/api/analytics/status` | Precompute status, last run timestamp, tract count |
+| GET | `/api/analytics/coverage` | Per-tract: nearest practice distance + affiliation (for heat map) |
+| POST | `/api/analytics/gaps` | Gap finder: filter by thresholds, return ranked underserved tracts |
+| GET | `/api/analytics/whitespace` | Per-tract affiliation coverage breakdown |
+
+---
+
+## Views / UI
+
+### Map View (default)
+
+- Mapbox GL JS map centered on Metro Atlanta
+- Practice markers colored by affiliation (see Affiliation Colors below)
+- Wellstar Peds Specialty hidden from map (kept in DB)
+- Affiliation toggle pills in header (show/hide markers by affiliation); custom sort order: Children's → TCCN → Piedmont → Wellstar → Wellstar Peds Specialty
+- Click marker → auto-fetches 15-min drive isochrone + population data (default; updates to match last-used filter)
+- Filter bar: max miles or max drive minutes → apply filter
+- Isochrone polygon drawn on map; map zooms to fit polygon
+- Census tract overlay (toggleable) with adjustable overlap threshold (20/40/60/80/100%)
+- Hover over any marker → popup shows practice name
+- Session state (selected origin, filter, map view) stored in sessionStorage; new browser tab starts fresh at fit-all zoom
+
+### Sidebar (map view)
+
+- Search bar (find practice by name, flies to marker)
+- Filter bar (miles / drive minutes / apply / clear; state persisted in sessionStorage)
+- Highway highlight toggle
+- Population panel (when isochrone active):
+  - Total population in catchment + census tract count
+  - Age bands: under 5, 5–9, 10–14, 15–17
+  - Household income: weighted avg + median
+- Practice list:
+  - Origin card (shown immediately on marker click)
+  - Filtered nearby practices with affiliation pill badges, sorted by distance
+  - Empty states: prompt to click marker / set filter as appropriate
+- Census tract toggle + overlap threshold selector (visible when population data loaded)
+
+### Practice Table
+
+- Full-screen editable table of all practices (including hidden affiliations)
+- Inline editing: name, address, phone, num_mds, num_apps, affiliation
+- Add new practice → new row scrolls into view; auto-geocodes if no lat/lng provided
+- Delete practice
+- Monospace font (11px), compact rows matching Tract Detail table style
+
+### Tract Detail
+
+- Full-screen sortable table of per-tract data for the currently active isochrone
+- Visible only when tract detail data is loaded (button appears in header)
+- Columns (55px fixed width where noted): Tract GEOID, Pop by Age Census Table (B01001 link), HH Income Census Table (B19013 link), Overlap % (55px), Total (55px), <5 (55px), 5–9 (55px), 10–14 (55px), 15–17 (55px), Median Income
+- Column headers wrap text, 48px row height, vertically bottom-aligned, left-justified
+
+### Analytics View *(planned)*
+
+A dedicated full-screen view for market gap analysis, separate from the practice-catchment workflow. Accessed via header button.
+
+#### Layout
+
+```
+┌──────────────┬──────────────────────────────────┬───────────────┐
+│ Controls     │   Map (tract heat map)            │ Results       │
+│              │                                  │               │
+│ Analysis:    │   - Tracts colored by metric     │ Ranked list   │
+│ ○ Coverage   │   - Gap clusters highlighted     │ of gaps /     │
+│ ○ Gap Finder │   - Color scale legend           │ tracts        │
+│ ○ Whitespace │                                  │               │
+│ ○ Prov. Ratio│                                  │ Click → drill │
+│              │                                  │   down        │
+│ Thresholds   │                                  │               │
+│ Affil. filter│                                  │               │
+│              │                                  │               │
+│ [Run]        │                                  │               │
+│              │                                  │               │
+│ Precompute   │                                  │               │
+│ [status]     │                                  │               │
+└──────────────┴──────────────────────────────────┴───────────────┘
+```
+
+#### Precompute step
+
+All analytics depend on a one-time batch job (and re-run when practices change):
+
+1. Fetch all ~1,200 census tract centroids in the 29-county MSA from TIGER API
+2. Fetch ACS demographics per tract (population by age, median income)
+3. For each tract centroid, compute drive time + distance to each practice via Mapbox Matrix (batched; skip pairs with straight-line distance >25 miles)
+4. Store results in `tract_demographics` and `tract_distances` SQLite tables
+
+Estimated runtime: 5–10 minutes. UI shows: precompute button, last-run timestamp, tract count, practice count at time of last run.
+
+#### Analysis 1: Coverage heat map *(Phase 1)*
+
+Color each census tract by drive time to the nearest practice of the selected affiliation(s). Shows geographic access deserts visually. Affiliation filter allows showing coverage by own network only, competitor only, or all.
+
+#### Analysis 2: Gap finder *(Phase 1)*
+
+User sets thresholds:
+- Minimum pediatric population (under 18) in gap cluster
+- Maximum acceptable drive time or miles to nearest practice
+- Which affiliations count as "coverage"
+
+Output: ranked list of underserved census tracts or contiguous clusters, sorted by pediatric population.
+
+Example: "Which single tract or small cluster has ≥5,000 kids with no Children's/TCCN practice within 5 miles?"
+
+Gap interpretation varies by affiliation filter:
+
+| Nearest practice | Strategic read |
+|---|---|
+| No practice at all | True access desert — community health / CON argument |
+| Wellstar only, no Children's/TCCN | High-priority competitive threat |
+| Piedmont only, no Children's/TCCN | Lower urgency (referral relationship softens risk) |
+| Both Wellstar + Piedmont, no Children's/TCCN | Contested market; Children's absent |
+
+#### Analysis 3: Affiliation white-space *(Phase 2)*
+
+Per-tract coverage breakdown by affiliation. Identifies where Wellstar is dominant and Children's/TCCN is absent — the highest-priority competitive expansion targets.
+
+#### Analysis 4: Provider ratio *(Phase 2)*
+
+Kids per provider (MD + APP) in each tract's effective catchment. Flags tracts where a practice exists nearby but is likely over-capacity. Informs both competitor weakness and own-network capacity planning.
+
+#### Analysis 5: Optimal new location *(Phase 3)*
+
+Grid search over Metro Atlanta: for each candidate lat/lng, compute how much currently underserved pediatric population would be within a 15-min drive. Ranks candidate locations by population impact. Answers: "If we were to open one new practice, where should it be?"
+
+---
+
+## Affiliation Colors
+
+### Pills (sidebar, header badges)
+
+| Affiliation | Background | Text |
+|---|---|---|
+| Children's | `#e6f4ee` | `#166534` |
+| TCCN | `#166534` | `#e6f4ee` (inverse of Children's) |
+| Piedmont | `#fef0eb` | `#9a3412` |
+| Wellstar | `#f3ebfa` | `#6b21a8` |
+| Other | `#edf2f7` | `#4a5568` |
+
+### Map markers
+
+| Affiliation | Color |
+|---|---|
+| Children's / TCCN | `#00A94F` (CHOA green) |
+| Wellstar | `#8246AF` (Wellstar purple, Pantone 2587C) |
+| Piedmont | `#ec5829` (Piedmont orange-red) |
+| Other | `#718096` (gray) |
+| Origin (selected) | `#e53e3e` (red) |
+| In-range (filtered) | `#3182ce` (blue) |
+
+---
+
+## Known Constraints / Gotchas
+
+- **Python 3.9**: use `from __future__ import annotations` + `typing` module; no `X | Y` union syntax or `list[X]` at runtime
+- **Mapbox Matrix**: max 25 coordinates per request (1 source + 24 destinations); batch accordingly
+- **Mapbox Isochrone**: profile=`driving`, contours_minutes param; returns GeoJSON FeatureCollection
+- **TIGER API**: may return tracts from multiple states if bounding box crosses state line
+- **Shapely**: use `.area` for overlap ratios (degree² units consistent for ratio calculations)
+- **SQLite**: `check_same_thread=False` required in `create_engine`
+- **Map source readiness**: always gate source updates on `map.getSource("name")` existence, not `isStyleLoaded()` — the latter fires before `load` and is unreliable as a readiness gate
+- **WebGL context loss**: on context recovery, `style.load` fires again and all programmatically-added sources/layers are cleared; re-add sources checking `!map.getSource(...)` before `setData`; preserve data in refs for this purpose
+- **sessionStorage**: all session state (origin, filter, map view) uses sessionStorage; new browser tab starts fresh
+
+---
+
+## Environment
+
+```
+practice-profiles/.env          MAPBOX_TOKEN, CENSUS_API_KEY
+practice-profiles/frontend/.env VITE_MAPBOX_TOKEN
+```
+
+---
+
+## File Structure
+
+```
+practice-profiles/
+├── REQUIREMENTS.md
+├── .env
+├── .gitignore
+├── start.sh
+├── practices.db
+├── backend/
+│   ├── main.py
+│   ├── database.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── crud.py
+│   ├── geocoding.py
+│   ├── matrix.py
+│   ├── importer.py
+│   ├── tracts.py
+│   ├── analytics.py           ← planned
+│   └── requirements.txt
+└── frontend/
+    ├── index.html
+    ├── vite.config.js
+    ├── package.json
+    └── src/
+        ├── main.jsx
+        ├── App.jsx
+        ├── api.js
+        └── components/
+            ├── Map.jsx
+            ├── Sidebar.jsx
+            ├── FilterBar.jsx
+            ├── PracticeCard.jsx
+            ├── ImportModal.jsx
+            ├── OriginBanner.jsx
+            ├── PopulationPanel.jsx
+            ├── SearchBar.jsx
+            ├── TableView.jsx
+            ├── TractDetailsPanel.jsx
+            ├── AnalyticsView.jsx      ← planned
+            ├── AnalyticsControls.jsx  ← planned
+            └── AnalyticsResults.jsx   ← planned
+```

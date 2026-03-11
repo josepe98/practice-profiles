@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import io
 import csv
-from typing import List
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+import os
+from typing import List, Optional
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
+CENSUS_API_KEY = os.getenv("CENSUS_API_KEY", "")
 
 from database import engine, get_db, Base
 import models  # noqa: F401 — ensures models are registered before create_all
@@ -19,16 +26,29 @@ from schemas import (
     DistanceResult,
     ImportResult,
     IsochronePopulationRequest,
+    TractBoundaryRequest,
     PopulationResult,
+    TractDetail,
+    AnalyticsStatus,
+    GapResult,
+    GapRequest,
 )
 import crud
 import geocoding as geo
 import matrix as mat
 from importer import import_file
-from tracts import get_population_for_isochrone
+from tracts import get_population_for_isochrone, get_tract_geojson_for_isochrone, get_tract_details
+from analytics import run_precompute, get_coverage_geojson, get_density_geojson, get_gaps, _status as analytics_status
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
+
+# Migrate: add land_area_sqm if missing (SQLite doesn't auto-add new columns)
+with engine.connect() as conn:
+    cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tract_demographics)"))]
+    if "land_area_sqm" not in cols:
+        conn.execute(text("ALTER TABLE tract_demographics ADD COLUMN land_area_sqm REAL"))
+        conn.commit()
 
 app = FastAPI(title="Practice Profiles API")
 
@@ -86,7 +106,7 @@ async def import_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
 
 @app.get("/api/import/template")
 def download_template():
-    columns = ["name", "address", "phone", "num_mds", "num_apps", "num_locations", "lat", "lng"]
+    columns = ["name", "address", "phone", "affiliation", "num_mds", "num_apps", "num_locations", "lat", "lng"]
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(columns)
@@ -129,13 +149,60 @@ def get_distances(req: DistanceRequest, db: Session = Depends(get_db)):
 
 # ── Population ─────────────────────────────────────────────────────────────────
 
+@app.post("/api/tracts")
+def tracts(req: TractBoundaryRequest):
+    try:
+        return get_tract_geojson_for_isochrone(req.isochrone, min_overlap=req.overlap_threshold)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TIGER API error: {e}")
+
+
+@app.post("/api/population/tracts", response_model=List[TractDetail])
+def population_tracts(req: IsochronePopulationRequest):
+    try:
+        return get_tract_details(req.isochrone, min_overlap=req.overlap_threshold)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Census/TIGER API error: {e}")
+
+
 @app.post("/api/population", response_model=PopulationResult)
 def population(req: IsochronePopulationRequest):
     try:
-        result = get_population_for_isochrone(req.isochrone)
+        result = get_population_for_isochrone(req.isochrone, min_overlap=req.overlap_threshold)
         return PopulationResult(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Census/TIGER API error: {e}")
+
+
+# ── Analytics ──────────────────────────────────────────────────────────────────
+
+@app.post("/api/analytics/precompute")
+def trigger_precompute(background_tasks: BackgroundTasks):
+    if analytics_status["running"]:
+        raise HTTPException(status_code=409, detail="Precompute already running")
+    background_tasks.add_task(run_precompute, MAPBOX_TOKEN, CENSUS_API_KEY)
+    return {"started": True}
+
+
+@app.get("/api/analytics/status", response_model=AnalyticsStatus)
+def analytics_status_endpoint():
+    return analytics_status
+
+
+@app.get("/api/analytics/coverage")
+def coverage(affiliations: Optional[str] = None, db: Session = Depends(get_db)):
+    affil_list = affiliations.split(",") if affiliations else None
+    return get_coverage_geojson(db, affil_list)
+
+
+@app.get("/api/analytics/density")
+def density(db: Session = Depends(get_db)):
+    return get_density_geojson(db)
+
+
+@app.post("/api/analytics/gaps", response_model=List[GapResult])
+def gaps(req: GapRequest, db: Session = Depends(get_db)):
+    return get_gaps(db, req.min_under_18, req.max_minutes, req.affiliations)
 
 
 # ── Re-geocode ─────────────────────────────────────────────────────────────────

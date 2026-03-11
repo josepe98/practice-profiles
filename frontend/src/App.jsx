@@ -1,9 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { api } from "./api.js";
 import Map from "./components/Map.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import OriginBanner from "./components/OriginBanner.jsx";
 import ImportModal from "./components/ImportModal.jsx";
+import TableView from "./components/TableView.jsx";
+import TractDetailsPanel from "./components/TractDetailsPanel.jsx";
+import AnalyticsView from "./components/AnalyticsView.jsx";
+
+function TractDetailView({ tracts }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", background: "#fff" }}>
+      <div style={{ padding: "9px 16px", borderBottom: "1px solid #e2e8f0", background: "#f7fafc", fontSize: 12, fontWeight: 600, color: "#4a5568", flexShrink: 0 }}>
+        {tracts?.length ?? 0} census tract{tracts?.length !== 1 ? "s" : ""} — population &amp; income breakdown
+      </div>
+      <TractDetailsPanel tracts={tracts} />
+    </div>
+  );
+}
 
 const styles = {
   app: {
@@ -40,20 +54,45 @@ const styles = {
   },
 };
 
+function affiliationColor(affiliation) {
+  const aff = (affiliation ?? "").toLowerCase();
+  if (aff === "wellstar") return "#8246AF";
+  if (aff === "children's") return "#00A94F";
+  if (aff === "piedmont") return "#ec5829";
+  if (aff === "zarminali") return "#5D0D3A";
+  if (aff.includes("playground")) return "#4e8cb7";
+  return "#4a5568";
+}
+
 export default function App() {
   const [practices, setPractices] = useState([]);
   const [originId, setOriginId] = useState(() => {
-    const s = localStorage.getItem("pf_originId");
+    const s = sessionStorage.getItem("pf_originId");
     return s ? parseInt(s, 10) : null;
   });
   const hasAutoApplied = useRef(false);
+  const hasInitialFit  = useRef(false);
   const [filteredResults, setFilteredResults] = useState(null); // null = no filter applied
   const [isochroneGeoJSON, setIsochroneGeoJSON] = useState(null);
   const [routesGeoJSON, setRoutesGeoJSON] = useState(null);
   const [flyToId, setFlyToId] = useState(null);
   const [populationData, setPopulationData] = useState(null);
+  const [tractDetails, setTractDetails] = useState(null);
+  const [tractGeoJSON, setTractGeoJSON] = useState(null);
+  const [showTracts, setShowTracts] = useState(false);
+  const [overlapThreshold, setOverlapThreshold] = useState(0.20);
+  const [hiddenAffiliations, setHiddenAffiliations] = useState(new Set());
   const [showImport, setShowImport] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showHighways, setShowHighways] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+  const [showTractDetail, setShowTractDetail] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [lastFilter, setLastFilter] = useState({ maxMinutes: 10 });
+  const [customOrigin, setCustomOrigin] = useState(null); // {lng, lat} or null
+  const [densityGeoJSON, setDensityGeoJSON] = useState(null);
+  const [showDensity, setShowDensity] = useState(false);
+  const [fitAllTrigger, setFitAllTrigger] = useState(0);
 
   const fetchPractices = useCallback(async () => {
     try {
@@ -68,37 +107,146 @@ export default function App() {
     fetchPractices();
   }, [fetchPractices]);
 
+  // Practices visible on the map/sidebar — excludes permanently hidden affiliations
+  const HIDDEN = new Set(["Wellstar Peds Specialty"]);
+  const visiblePractices = useMemo(
+    () => practices.filter((p) => !HIDDEN.has(p.affiliation ?? "")),
+    [practices]
+  );
+
+  const affiliations = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    for (const p of visiblePractices) {
+      const aff = p.affiliation ?? "";
+      if (aff && !seen.has(aff)) { seen.add(aff); result.push(aff); }
+    }
+    const ORDER = ["Children's", "TCCN", "Piedmont", "Wellstar", "Wellstar Peds Specialty"];
+    return result.sort((a, b) => {
+      const ai = ORDER.indexOf(a), bi = ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [visiblePractices]);
+
+  const toggleAffiliation = useCallback((aff) => {
+    setHiddenAffiliations((prev) => {
+      const next = new Set(prev);
+      if (next.has(aff)) next.delete(aff); else next.add(aff);
+      return next;
+    });
+  }, []);
+
+  const displayedResults = useMemo(() => {
+    if (!filteredResults) return null;
+    if (hiddenAffiliations.size === 0) return filteredResults;
+    return filteredResults.filter((p) => !hiddenAffiliations.has(p.affiliation ?? ""));
+  }, [filteredResults, hiddenAffiliations]);
+
   // Persist originId across refreshes
   useEffect(() => {
     if (originId != null) {
-      localStorage.setItem("pf_originId", String(originId));
+      sessionStorage.setItem("pf_originId", String(originId));
     } else {
-      localStorage.removeItem("pf_originId");
+      sessionStorage.removeItem("pf_originId");
     }
   }, [originId]);
 
+  // Fetch isochrone + population for a practice with a given filter — shared by
+  // auto-fetch on marker click and explicit Apply.
+  const fetchCatchment = useCallback(async (practice, filter) => {
+    if (!practice?.lat) return;
+    try {
+      const isochrone = await api.fetchIsochrone(practice.lng, practice.lat, filter)
+        .catch((err) => { console.error("Isochrone failed:", err); return null; });
+      setIsochroneGeoJSON(isochrone);
+      if (isochrone) {
+        api.getPopulation(isochrone, overlapThreshold)
+          .then(setPopulationData)
+          .catch(() => setPopulationData(null));
+        api.getTractDetails(isochrone, overlapThreshold)
+          .then(setTractDetails)
+          .catch(() => setTractDetails(null));
+      } else {
+        setPopulationData(null);
+        setTractDetails(null);
+      }
+    } catch (err) {
+      console.error("fetchCatchment failed:", err);
+    }
+  }, [overlapThreshold]);
+
   const handleOriginSelect = useCallback((id) => {
     setOriginId(id);
+    setCustomOrigin(null);
     setFilteredResults(null);
     setIsochroneGeoJSON(null);
     setRoutesGeoJSON(null);
     setPopulationData(null);
-  }, []);
+    setTractDetails(null);
+    setTractGeoJSON(null);
+    setShowTracts(false);
+    const practice = visiblePractices.find((p) => p.id === id);
+    fetchCatchment(practice, lastFilter);
+  }, [visiblePractices, lastFilter, fetchCatchment]);
+
+  const handleMapClick = useCallback((lngLat) => {
+    const { lng, lat } = lngLat;
+    setCustomOrigin({ lng, lat });
+    setOriginId(null);
+    setFilteredResults(null);
+    setIsochroneGeoJSON(null);
+    setRoutesGeoJSON(null);
+    setPopulationData(null);
+    setTractDetails(null);
+    setTractGeoJSON(null);
+    setShowTracts(false);
+    fetchCatchment({ lng, lat }, lastFilter);
+  }, [lastFilter, fetchCatchment]);
 
   const handleFilter = useCallback(
     async ({ maxMiles, maxMinutes }) => {
-      if (!originId) return;
+      if (!originId && !customOrigin) return;
       setLoading(true);
+      const newFilter = { maxMiles, maxMinutes };
+      setLastFilter(newFilter);
       try {
-        const origin = practices.find((p) => p.id === originId);
-        const targetIds = practices
+        const origin = customOrigin ?? visiblePractices.find((p) => p.id === originId);
+        const originLng = origin?.lng;
+        const originLat = origin?.lat;
+
+        // For custom pins, only fetch isochrone + population (no distance matrix)
+        if (customOrigin) {
+          const isochrone = originLat != null
+            ? await api.fetchIsochrone(originLng, originLat, { maxMinutes, maxMiles }).catch((err) => { console.error("Isochrone failed:", err); return null; })
+            : null;
+          setIsochroneGeoJSON(isochrone);
+          setFilteredResults(null);
+          setRoutesGeoJSON(null);
+          if (isochrone) {
+            api.getPopulation(isochrone, overlapThreshold)
+              .then(setPopulationData)
+              .catch((err) => { console.error("Population fetch failed:", err); setPopulationData(null); });
+            api.getTractDetails(isochrone, overlapThreshold)
+              .then(setTractDetails)
+              .catch((err) => { console.error("Tract details fetch failed:", err); setTractDetails(null); });
+          } else {
+            setPopulationData(null);
+            setTractDetails(null);
+          }
+          return;
+        }
+
+        const targetIds = visiblePractices
           .filter((p) => p.id !== originId && p.lat != null && p.lng != null)
           .map((p) => p.id);
 
         const [results, isochrone] = await Promise.all([
           api.getDistances(originId, targetIds),
-          origin?.lat != null
-            ? api.fetchIsochrone(origin.lng, origin.lat, { maxMinutes, maxMiles }).catch((err) => { console.error("Isochrone failed:", err); return null; })
+          originLat != null
+            ? api.fetchIsochrone(originLng, originLat, { maxMinutes, maxMiles }).catch((err) => { console.error("Isochrone failed:", err); return null; })
             : Promise.resolve(null),
         ]);
 
@@ -112,7 +260,7 @@ export default function App() {
         });
 
         // Merge with practice data
-        const practiceMap = Object.fromEntries(practices.map((p) => [p.id, p]));
+        const practiceMap = Object.fromEntries(visiblePractices.map((p) => [p.id, p]));
         const enriched = filtered
           .filter((r) => practiceMap[r.id])
           .map((r) => ({ ...practiceMap[r.id], miles: r.miles, drive_minutes: r.drive_minutes }))
@@ -120,20 +268,24 @@ export default function App() {
 
         setFilteredResults(enriched);
 
-        // Fetch population data via census tract intersection with isochrone
+        // Fetch population data + per-tract details via census tract intersection with isochrone
         if (isochrone) {
-          api.getPopulation(isochrone)
+          api.getPopulation(isochrone, overlapThreshold)
             .then(setPopulationData)
             .catch((err) => { console.error("Population fetch failed:", err); setPopulationData(null); });
+          api.getTractDetails(isochrone, overlapThreshold)
+            .then(setTractDetails)
+            .catch((err) => { console.error("Tract details fetch failed:", err); setTractDetails(null); });
         } else {
           setPopulationData(null);
+          setTractDetails(null);
         }
 
         // Fetch driving routes to all in-range practices in parallel
         const routeGeoms = await Promise.all(
           enriched.map((p) =>
             p.lat != null
-              ? api.fetchRoute(origin.lng, origin.lat, p.lng, p.lat).catch(() => null)
+              ? api.fetchRoute(originLng, originLat, p.lng, p.lat).catch(() => null)
               : Promise.resolve(null)
           )
         );
@@ -149,69 +301,234 @@ export default function App() {
         setLoading(false);
       }
     },
-    [originId, practices]
+    [originId, customOrigin, visiblePractices, overlapThreshold]
   );
 
-  // After practices load, auto-apply saved filter if origin + filter are both stored
+  // On first practice load in a fresh session, fit map to show all markers
   useEffect(() => {
-    if (!practices.length || !originId || hasAutoApplied.current) return;
-    if (!practices.some((p) => p.id === originId)) return;
-    const saved = localStorage.getItem("pf_filter");
-    if (!saved) return;
-    try {
-      const filter = JSON.parse(saved);
-      hasAutoApplied.current = true;
-      handleFilter(filter);
-    } catch {}
-  }, [practices, originId, handleFilter]);
+    if (!practices.length || hasInitialFit.current) return;
+    hasInitialFit.current = true;
+    if (!sessionStorage.getItem("pf_mapView")) {
+      setFitAllTrigger(n => n + 1);
+    }
+  }, [practices]);
+
+  // After practices load, restore session state: apply saved filter or at least
+  // fetch catchment data so population shows immediately for the saved origin.
+  useEffect(() => {
+    if (!visiblePractices.length || !originId || hasAutoApplied.current) return;
+    if (!visiblePractices.some((p) => p.id === originId)) return;
+    hasAutoApplied.current = true;
+    const saved = sessionStorage.getItem("pf_filter");
+    if (saved) {
+      try { handleFilter(JSON.parse(saved)); } catch {}
+    } else {
+      const practice = visiblePractices.find((p) => p.id === originId);
+      fetchCatchment(practice, lastFilter);
+    }
+  }, [visiblePractices, originId, handleFilter, fetchCatchment, lastFilter]);
 
   const handleSearchSelect = useCallback((practice) => {
     setOriginId(practice.id);
+    setCustomOrigin(null);
     setFilteredResults(null);
     setIsochroneGeoJSON(null);
     setRoutesGeoJSON(null);
     setPopulationData(null);
+    setTractDetails(null);
+    setTractGeoJSON(null);
+    setShowTracts(false);
     setFlyToId(practice.id);
-  }, []);
+    fetchCatchment(practice, lastFilter);
+  }, [lastFilter, fetchCatchment]);
+
+  const handleToggleTracts = useCallback(async () => {
+    if (showTracts) {
+      setShowTracts(false);
+      setTractGeoJSON(null);
+    } else if (isochroneGeoJSON) {
+      try {
+        const geojson = await api.getTractBoundaries(isochroneGeoJSON, overlapThreshold);
+        setTractGeoJSON(geojson);
+        setShowTracts(true);
+      } catch (err) {
+        console.error("Tract boundary fetch failed:", err);
+      }
+    }
+  }, [showTracts, isochroneGeoJSON, overlapThreshold]);
+
+  const handleThresholdChange = useCallback(async (newThreshold) => {
+    setOverlapThreshold(newThreshold);
+    if (!isochroneGeoJSON) return;
+
+    const promises = [];
+
+    if (showTracts) {
+      promises.push(
+        api.getTractBoundaries(isochroneGeoJSON, newThreshold)
+          .then(setTractGeoJSON)
+          .catch((err) => console.error("Tract boundary fetch failed:", err))
+      );
+    }
+
+    promises.push(
+      api.getPopulation(isochroneGeoJSON, newThreshold)
+        .then(setPopulationData)
+        .catch((err) => { console.error("Population fetch failed:", err); setPopulationData(null); })
+    );
+    promises.push(
+      api.getTractDetails(isochroneGeoJSON, newThreshold)
+        .then(setTractDetails)
+        .catch((err) => { console.error("Tract details fetch failed:", err); setTractDetails(null); })
+    );
+
+    await Promise.all(promises);
+  }, [showTracts, isochroneGeoJSON]);
+
+  // Close tract detail panel when its data is no longer available
+  useEffect(() => {
+    if (!tractDetails) setShowTractDetail(false);
+  }, [tractDetails]);
 
   const handleImportDone = useCallback(() => {
     setShowImport(false);
     fetchPractices();
   }, [fetchPractices]);
 
-  const origin = practices.find((p) => p.id === originId) ?? null;
+  const handleToggleDensity = useCallback(async () => {
+    if (showDensity) {
+      setShowDensity(false);
+      return;
+    }
+    if (densityGeoJSON) {
+      setShowDensity(true);
+      return;
+    }
+    try {
+      const data = await api.getDensity();
+      setDensityGeoJSON(data);
+      setShowDensity(true);
+    } catch (err) {
+      console.error("Density fetch failed:", err);
+    }
+  }, [showDensity, densityGeoJSON]);
+
+  const origin = visiblePractices.find((p) => p.id === originId) ?? null;
+  const hasOrigin = origin != null || customOrigin != null;
 
   return (
     <div style={styles.app}>
       <header style={styles.header}>
         <span style={styles.title}>Practice Profiles</span>
-        <button style={styles.importBtn} onClick={() => setShowImport(true)}>
-          Import CSV / Excel
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {affiliations.map((aff) => {
+            const isHidden = hiddenAffiliations.has(aff);
+            return (
+              <button
+                key={aff}
+                onClick={() => toggleAffiliation(aff)}
+                title={isHidden ? `Show ${aff}` : `Hide ${aff}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "3px 10px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "rgba(255,255,255,0.9)",
+                  color: "#2d3748",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  opacity: isHidden ? 0.4 : 1,
+                  transition: "opacity 0.15s",
+                }}
+              >
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: isHidden ? "#cbd5e0" : affiliationColor(aff),
+                }} />
+                {aff}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {tractDetails && (
+            <button
+              style={{ ...styles.importBtn, background: showTractDetail ? "#2d6a4f" : "#5A5A5A" }}
+              onClick={() => { setShowTractDetail(v => !v); setShowTable(false); }}
+            >
+              {showTractDetail ? "← Map" : "Tract Detail"}
+            </button>
+          )}
+          <button
+            style={{ ...styles.importBtn, background: showAnalytics ? "#2d6a4f" : "#5A5A5A" }}
+            onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTractDetail(false); }}
+          >
+            {showAnalytics ? "← Map" : "Analytics"}
+          </button>
+          <button
+            style={{ ...styles.importBtn, background: showTable ? "#2d6a4f" : "#5A5A5A" }}
+            onClick={() => { setShowTable(v => !v); setShowTractDetail(false); setShowAnalytics(false); }}
+          >
+            {showTable ? "← Map" : "Practice Table"}
+          </button>
+          <button style={styles.importBtn} onClick={() => setShowImport(true)}>
+            Import CSV / Excel
+          </button>
+        </div>
       </header>
 
-      <OriginBanner origin={origin} />
+      <OriginBanner origin={origin} customOrigin={customOrigin} onClearCustomOrigin={() => { setCustomOrigin(null); setIsochroneGeoJSON(null); setPopulationData(null); setTractDetails(null); setTractGeoJSON(null); setShowTracts(false); }} />
 
       <div style={styles.body}>
-        <Map
-          practices={practices}
-          originId={originId}
-          filteredIds={filteredResults ? new Set(filteredResults.map((r) => r.id)) : null}
-          onSelectOrigin={handleOriginSelect}
-          isochroneGeoJSON={isochroneGeoJSON}
-          routesGeoJSON={routesGeoJSON}
-          flyToId={flyToId}
-        />
-        <Sidebar
-          practices={practices}
-          originId={originId}
-          filteredResults={filteredResults}
-          populationData={populationData}
-          loading={loading}
-          onFilter={handleFilter}
-          onClearFilter={() => { setFilteredResults(null); setIsochroneGeoJSON(null); setRoutesGeoJSON(null); setPopulationData(null); }}
-          onSearchSelect={handleSearchSelect}
-        />
+        {showAnalytics ? (
+          <AnalyticsView onClose={() => setShowAnalytics(false)} />
+        ) : showTable ? (
+          <TableView practices={practices} onRefresh={fetchPractices} />
+        ) : showTractDetail ? (
+          <TractDetailView tracts={tractDetails} />
+        ) : (
+          <>
+            <Map
+              practices={visiblePractices}
+              originId={originId}
+              filteredIds={displayedResults ? new Set(displayedResults.map((r) => r.id)) : null}
+              hiddenAffiliations={hiddenAffiliations}
+              showHighways={showHighways}
+              onSelectOrigin={handleOriginSelect}
+              onMapClick={handleMapClick}
+              customOrigin={customOrigin}
+              isochroneGeoJSON={isochroneGeoJSON}
+              routesGeoJSON={routesGeoJSON}
+              tractGeoJSON={tractGeoJSON}
+              densityGeoJSON={densityGeoJSON}
+              showDensity={showDensity}
+              flyToId={flyToId}
+              fitAllTrigger={fitAllTrigger}
+            />
+            <Sidebar
+              practices={visiblePractices}
+              originId={originId}
+              customOrigin={customOrigin}
+              filteredResults={displayedResults}
+              populationData={populationData}
+              showTracts={showTracts}
+              onToggleTracts={handleToggleTracts}
+              overlapThreshold={overlapThreshold}
+              onThresholdChange={handleThresholdChange}
+              loading={loading}
+              onFilter={handleFilter}
+              onClearFilter={() => { setOriginId(null); setCustomOrigin(null); setFilteredResults(null); setIsochroneGeoJSON(null); setRoutesGeoJSON(null); setPopulationData(null); setTractDetails(null); setTractGeoJSON(null); setShowTracts(false); setFitAllTrigger(n => n + 1); }}
+              onSearchSelect={handleSearchSelect}
+              showHighways={showHighways}
+              onToggleHighways={() => setShowHighways((v) => !v)}
+              showDensity={showDensity}
+              onToggleDensity={handleToggleDensity}
+            />
+          </>
+        )}
       </div>
 
       {showImport && (

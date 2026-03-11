@@ -62,6 +62,7 @@ def bulk_create_practices(db: Session, practices: list[dict]) -> int:
             name=p["name"],
             address=p["address"],
             phone=p.get("phone"),
+            affiliation=p.get("affiliation"),
             num_mds=int(p.get("num_mds") or 0),
             num_apps=int(p.get("num_apps") or 0),
             num_locations=int(p.get("num_locations") or 1),

@@ -17,8 +17,17 @@ function Badge({ label, value, bg, color, small }) {
   );
 }
 
+function affiliationColor(affiliation) {
+  const aff = (affiliation ?? "").toLowerCase();
+  if (aff === "wellstar") return { bg: "#f3ebfa", color: "#6b21a8" };
+  if (aff === "children's")    return { bg: "#e6f4ee", color: "#166534" };
+  if (aff === "tccn")          return { bg: "#166534", color: "#e6f4ee" };
+  if (aff === "piedmont")      return { bg: "#fef0eb", color: "#9a3412" };
+  return { bg: "#edf2f7", color: "#4a5568" };
+}
+
 export default function PracticeCard({ practice, small }) {
-  const { name, address, miles, drive_minutes, num_mds, num_apps } = practice;
+  const { name, address, miles, drive_minutes, num_mds, num_apps, affiliation } = practice;
 
   const cardStyle = {
     padding: small ? "7px 14px" : "10px 14px",
@@ -30,6 +39,10 @@ export default function PracticeCard({ practice, small }) {
     fontWeight: 600,
     color: small ? "#4a5568" : "#1a202c",
     marginBottom: 2,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
   };
 
   const addressStyle = {
@@ -38,19 +51,36 @@ export default function PracticeCard({ practice, small }) {
     marginBottom: 4,
   };
 
+  const affColors = affiliation ? affiliationColor(affiliation) : null;
+
   return (
     <div style={cardStyle}>
-      <div style={nameStyle}>{name}</div>
+      <div style={nameStyle}>
+        <span>{name}</span>
+        {affiliation && (
+          <span style={{
+            fontSize: small ? 9 : 10,
+            fontWeight: 500,
+            padding: "1px 6px",
+            borderRadius: 99,
+            background: affColors.bg,
+            color: affColors.color,
+            whiteSpace: "nowrap",
+          }}>
+            {affiliation}
+          </span>
+        )}
+      </div>
       <div style={addressStyle}>{address}</div>
       <div style={{ display: "flex", gap: small ? 6 : 12, flexWrap: "wrap" }}>
         {miles != null && (
-          <Badge label="Miles" value={miles.toFixed(1)} bg="#ebf8ff" color="#2b6cb0" small={small} />
+          <Badge label="Miles" value={miles.toFixed(1)} bg="#edf2f7" color="#4a5568" small={small} />
         )}
         {drive_minutes != null && (
-          <Badge label="Drive" value={`${Math.round(drive_minutes)} min`} bg="#e9d8fd" color="#553c9a" small={small} />
+          <Badge label="Drive" value={`${Math.round(drive_minutes)} min`} bg="#edf2f7" color="#4a5568" small={small} />
         )}
-        <Badge label="MDs"  value={num_mds}  bg="#f0fff4" color="#276749" small={small} />
-        <Badge label="APPs" value={num_apps} bg="#fffaf0" color="#744210" small={small} />
+        <Badge label="MDs"  value={num_mds}  bg="#edf2f7" color="#4a5568" small={small} />
+        <Badge label="APPs" value={num_apps} bg="#edf2f7" color="#4a5568" small={small} />
       </div>
     </div>
   );

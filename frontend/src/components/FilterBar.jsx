@@ -44,18 +44,18 @@ const styles = {
 
 function getSavedFilter() {
   try {
-    const s = localStorage.getItem("pf_filter");
+    const s = sessionStorage.getItem("pf_filter");
     return s ? JSON.parse(s) : null;
   } catch { return null; }
 }
 
-export default function FilterBar({ originId, loading, onFilter, onClearFilter }) {
+export default function FilterBar({ originId, customOrigin, loading, onFilter, onClearFilter, showHighways, onToggleHighways, showDensity, onToggleDensity }) {
   const saved = getSavedFilter();
   const [milesVal, setMilesVal]       = useState(saved?.maxMiles   != null ? String(saved.maxMiles)   : "");
-  const [minutesVal, setMinutesVal]   = useState(saved?.maxMinutes != null ? String(saved.maxMinutes) : "");
+  const [minutesVal, setMinutesVal]   = useState(saved?.maxMinutes != null ? String(saved.maxMinutes) : "10");
   // "miles" | "minutes" | null
   const [activeField, setActiveField] = useState(
-    saved?.maxMiles != null ? "miles" : saved?.maxMinutes != null ? "minutes" : null
+    saved?.maxMiles != null ? "miles" : saved?.maxMinutes != null ? "minutes" : "minutes"
   );
 
   const handleMiles = (e) => {
@@ -76,13 +76,13 @@ export default function FilterBar({ originId, loading, onFilter, onClearFilter }
     setMilesVal("");
     setMinutesVal("");
     setActiveField(null);
-    localStorage.removeItem("pf_filter");
+    sessionStorage.removeItem("pf_filter");
     onClearFilter();
   };
 
   const milesDisabled   = activeField === "minutes";
   const minutesDisabled = activeField === "miles";
-  const canApply = originId && !loading && activeField !== null;
+  const canApply = (originId || customOrigin) && !loading && activeField !== null;
 
   return (
     <div style={styles.bar}>
@@ -120,7 +120,7 @@ export default function FilterBar({ originId, loading, onFilter, onClearFilter }
               maxMiles:   milesVal   !== "" ? parseFloat(milesVal)   : null,
               maxMinutes: minutesVal !== "" ? parseFloat(minutesVal) : null,
             };
-            localStorage.setItem("pf_filter", JSON.stringify(filter));
+            sessionStorage.setItem("pf_filter", JSON.stringify(filter));
             onFilter(filter);
           }}
           disabled={!canApply}
@@ -131,11 +131,29 @@ export default function FilterBar({ originId, loading, onFilter, onClearFilter }
           Clear
         </button>
       </div>
-      {!originId && (
+      {!originId && !customOrigin && (
         <p style={{ marginTop: 6, fontSize: 12, color: "#a0aec0" }}>
-          Select an origin practice first.
+          Select a practice or click the map to set an origin.
         </p>
       )}
+      <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, cursor: "pointer", userSelect: "none" }}>
+        <input
+          type="checkbox"
+          checked={showHighways ?? false}
+          onChange={onToggleHighways}
+          style={{ accentColor: "#f59e0b", width: 13, height: 13, cursor: "pointer" }}
+        />
+        <span style={{ fontSize: 12, color: "#4a5568" }}>Highlight freeways & major highways</span>
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, cursor: "pointer", userSelect: "none" }}>
+        <input
+          type="checkbox"
+          checked={showDensity ?? false}
+          onChange={onToggleDensity}
+          style={{ accentColor: "#3182ce", width: 13, height: 13, cursor: "pointer" }}
+        />
+        <span style={{ fontSize: 12, color: "#4a5568" }}>Show pediatric population density</span>
+      </label>
     </div>
   );
 }

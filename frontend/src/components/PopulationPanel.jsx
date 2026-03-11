@@ -7,11 +7,6 @@ const BANDS = [
   { key: "age_15_17", label: "15–17",   color: "#9f7aea" },
 ];
 
-function fmt(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000)     return (n / 1_000).toFixed(0) + "k";
-  return String(n);
-}
 
 const styles = {
   panel: {
@@ -30,7 +25,7 @@ const styles = {
   total: { fontSize: 18, fontWeight: 700, color: "#1a202c", marginBottom: 8 },
   row: {
     display: "grid",
-    gridTemplateColumns: "48px 1fr 28px 32px",
+    gridTemplateColumns: "48px 1fr 48px",
     alignItems: "center",
     gap: "0 6px",
     marginBottom: 4,
@@ -38,8 +33,13 @@ const styles = {
   bandLabel: { fontSize: 11, color: "#4a5568" },
   track: { height: 6, background: "#e2e8f0", borderRadius: 3, overflow: "hidden" },
   fill:  { height: "100%", borderRadius: 3, transition: "width 0.4s ease" },
-  pct:   { fontSize: 10, color: "#718096", textAlign: "right" },
-  count: { fontSize: 10, color: "#718096", textAlign: "right" },
+  count: { fontSize: 10, color: "#2d3748", textAlign: "right" },
+  incomeSection: { marginTop: 8, paddingTop: 8, borderTop: "1px solid #e2e8f0" },
+  incomeTitle: { fontSize: 11, fontWeight: 700, color: "#4a5568", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 },
+  incomeRow: { display: "flex", gap: 16 },
+  incomeStat: { display: "flex", flexDirection: "column", gap: 1 },
+  incomeLabel: { fontSize: 10, color: "#a0aec0" },
+  incomeValue: { fontSize: 14, fontWeight: 700, color: "#1a202c" },
 };
 
 export default function PopulationPanel({ data }) {
@@ -68,11 +68,29 @@ export default function PopulationPanel({ data }) {
             <div style={styles.track}>
               <div style={{ ...styles.fill, width: `${pct}%`, background: color }} />
             </div>
-            <span style={styles.pct}>{pct}%</span>
-            <span style={styles.count}>{fmt(value)}</span>
+            <span style={styles.count}>{value.toLocaleString()}</span>
           </div>
         );
       })}
+      {(data.income_weighted_avg != null || data.income_median != null) && (
+        <div style={styles.incomeSection}>
+          <div style={styles.incomeTitle}>Household income</div>
+          <div style={styles.incomeRow}>
+            {data.income_weighted_avg != null && (
+              <div style={styles.incomeStat}>
+                <span style={styles.incomeLabel}>Wtd avg</span>
+                <span style={styles.incomeValue}>${data.income_weighted_avg.toLocaleString()}</span>
+              </div>
+            )}
+            {data.income_median != null && (
+              <div style={styles.incomeStat}>
+                <span style={styles.incomeLabel}>Median</span>
+                <span style={styles.incomeValue}>${data.income_median.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -40,11 +40,27 @@ export const api = {
     request("POST", "/distances", { origin_id: originId, target_ids: targetIds }),
 
   // Population via census tract + isochrone intersection (Census ACS)
-  getPopulation: (isochroneGeoJSON) =>
-    request("POST", "/population", { isochrone: isochroneGeoJSON }),
+  getPopulation: (isochroneGeoJSON, overlapThreshold = 0.20) =>
+    request("POST", "/population", { isochrone: isochroneGeoJSON, overlap_threshold: overlapThreshold }),
+
+  // Census tract boundaries for visual overlay
+  getTractBoundaries: (isochroneGeoJSON, overlapThreshold = 0.20) =>
+    request("POST", "/tracts", { isochrone: isochroneGeoJSON, overlap_threshold: overlapThreshold }),
+
+  // Per-tract population + income breakdown for Details tab
+  getTractDetails: (isochroneGeoJSON, overlapThreshold = 0.20) =>
+    request("POST", "/population/tracts", { isochrone: isochroneGeoJSON, overlap_threshold: overlapThreshold }),
 
   // Geocode
   geocodePractice: (id) => request("POST", `/geocode/${id}`),
+
+  // Analytics
+  triggerPrecompute: () => request("POST", "/analytics/precompute", {}),
+  getAnalyticsStatus: () => request("GET", "/analytics/status"),
+  getCoverage: (affiliations) =>
+    request("GET", `/analytics/coverage?affiliations=${(affiliations || []).join(",")}`),
+  getGaps: (params) => request("POST", "/analytics/gaps", params),
+  getDensity: () => request("GET", "/analytics/density"),
 
   // Driving route geometry between two points
   fetchRoute: async (oLng, oLat, tLng, tLat) => {
