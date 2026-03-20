@@ -139,10 +139,11 @@ function pickColor(id, originId, filteredIds, practiceMap) {
   return COLORS.default;
 }
 
-export default function Map({ practices, originId, filteredIds, hiddenAffiliations, showHighways, onSelectOrigin, onMapClick, customOrigin, densityGeoJSON, showDensity, isochroneGeoJSON, routesGeoJSON, tractGeoJSON, flyToId, fitAllTrigger }) {
+export default function Map({ practices, originId, filteredIds, hiddenAffiliations, showHighways, onSelectOrigin, onMapClick, customOrigin, densityGeoJSON, showDensity, isochroneGeoJSON, routesGeoJSON, tractGeoJSON, flyToId, fitAllTrigger, candidatePOIs, showCandidates, addingCandidateMode, onAddCandidate, onRemoveCandidate, onUpdateCandidatePosition, patientOriginsGeoJSON, showPatientOrigins }) {
   const containerRef   = useRef(null);
   const mapRef         = useRef(null);
   const markerMapRef   = useRef({});
+  const candidateMarkerMapRef = useRef({});
   // Refs so event listeners always see current values without re-binding
   const filteredIdsRef     = useRef(filteredIds);
   const practicesRef       = useRef(practices);
@@ -153,8 +154,14 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
   const hiddenAffiliationsRef  = useRef(hiddenAffiliations);
   const showHighwaysRef        = useRef(showHighways);
   const onMapClickRef          = useRef(onMapClick);
-  const densityGeoJSONRef      = useRef(densityGeoJSON);
-  const customPinMarkerRef     = useRef(null);
+  const densityGeoJSONRef         = useRef(densityGeoJSON);
+  const patientOriginsGeoJSONRef  = useRef(patientOriginsGeoJSON);
+  const customPinMarkerRef        = useRef(null);
+  const addingCandidateModeRef        = useRef(addingCandidateMode);
+  const onAddCandidateRef             = useRef(onAddCandidate);
+  const onRemoveCandidateRef          = useRef(onRemoveCandidate);
+  const showCandidatesRef             = useRef(showCandidates);
+  const onUpdateCandidatePositionRef  = useRef(onUpdateCandidatePosition);
 
   useEffect(() => { filteredIdsRef.current      = filteredIds;      }, [filteredIds]);
   useEffect(() => { practicesRef.current        = practices;        }, [practices]);
@@ -165,7 +172,13 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
   useEffect(() => { hiddenAffiliationsRef.current  = hiddenAffiliations;  }, [hiddenAffiliations]);
   useEffect(() => { showHighwaysRef.current        = showHighways;        }, [showHighways]);
   useEffect(() => { onMapClickRef.current          = onMapClick;          }, [onMapClick]);
-  useEffect(() => { densityGeoJSONRef.current      = densityGeoJSON;      }, [densityGeoJSON]);
+  useEffect(() => { densityGeoJSONRef.current         = densityGeoJSON;         }, [densityGeoJSON]);
+  useEffect(() => { patientOriginsGeoJSONRef.current  = patientOriginsGeoJSON;  }, [patientOriginsGeoJSON]);
+  useEffect(() => { addingCandidateModeRef.current       = addingCandidateMode;       }, [addingCandidateMode]);
+  useEffect(() => { onAddCandidateRef.current            = onAddCandidate;            }, [onAddCandidate]);
+  useEffect(() => { onRemoveCandidateRef.current         = onRemoveCandidate;         }, [onRemoveCandidate]);
+  useEffect(() => { showCandidatesRef.current            = showCandidates;            }, [showCandidates]);
+  useEffect(() => { onUpdateCandidatePositionRef.current = onUpdateCandidatePosition; }, [onUpdateCandidatePosition]);
 
   // Stable function — reads from refs, safe to use as map event listener
   const refreshLabels = useCallback(() => {
@@ -252,6 +265,24 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         },
       });
 
+      map.addSource("patient-origins", { type: "geojson", data: empty });
+      map.addLayer({
+        id: "patient-origins-fill", type: "fill", source: "patient-origins",
+        layout: { "visibility": "none" },
+        paint: {
+          "fill-color": [
+            "interpolate", ["linear"], ["get", "normalized"],
+            0, "#f7fcf5", 0.25, "#c7e9c0", 0.5, "#74c476", 0.75, "#238b45", 1, "#00441b",
+          ],
+          "fill-opacity": 0.65,
+        },
+      }, "highway-highlight");
+      map.addLayer({
+        id: "patient-origins-outline", type: "line", source: "patient-origins",
+        layout: { "visibility": "none" },
+        paint: { "line-color": "#004d00", "line-width": 0.8, "line-opacity": 0.6 },
+      }, "highway-highlight");
+
       map.addSource("density", { type: "geojson", data: empty });
       map.addLayer({
         id: "density-fill", type: "fill", source: "density",
@@ -320,9 +351,13 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
       });
       map.on("zoomend", refreshLabels);
 
-      // Click on empty map space to drop a custom pin
+      // Click on empty map space: add candidate or drop custom origin pin
       map.on("click", (e) => {
-        onMapClickRef.current?.(e.lngLat);
+        if (addingCandidateModeRef.current) {
+          onAddCandidateRef.current?.(e.lngLat);
+        } else {
+          onMapClickRef.current?.(e.lngLat);
+        }
       });
 
       // Re-add sources/layers and re-apply data after WebGL context loss + restoration.
@@ -376,6 +411,26 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
               "text-halo-width": 2,
             },
           });
+        }
+
+        if (!map.getSource("patient-origins")) {
+          map.addSource("patient-origins", { type: "geojson", data: empty });
+          map.addLayer({
+            id: "patient-origins-fill", type: "fill", source: "patient-origins",
+            layout: { "visibility": "none" },
+            paint: {
+              "fill-color": [
+                "interpolate", ["linear"], ["get", "normalized"],
+                0, "#f7fcf5", 0.25, "#c7e9c0", 0.5, "#74c476", 0.75, "#238b45", 1, "#00441b",
+              ],
+              "fill-opacity": 0.65,
+            },
+          }, "highway-highlight");
+          map.addLayer({
+            id: "patient-origins-outline", type: "line", source: "patient-origins",
+            layout: { "visibility": "none" },
+            paint: { "line-color": "#004d00", "line-width": 0.8, "line-opacity": 0.6 },
+          }, "highway-highlight");
         }
 
         if (!map.getSource("density")) {
@@ -439,10 +494,12 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         const iso = map.getSource("isochrone");
         const rts = map.getSource("routes");
         const trc = map.getSource("tracts");
+        const poi = map.getSource("patient-origins");
         if (den) den.setData(densityGeoJSONRef.current ?? empty);
         if (iso) iso.setData(isochroneGeoJSONRef.current ?? empty);
         if (rts) rts.setData(routesGeoJSONRef.current  ?? empty);
         if (trc) trc.setData(tractGeoJSONRef.current   ?? empty);
+        if (poi) poi.setData(patientOriginsGeoJSONRef.current ?? empty);
         refreshLabels();
       });
     });
@@ -663,6 +720,137 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
       customPinMarkerRef.current = null;
     }
   }, [customOrigin]);
+
+  // Update patient origins choropleth data
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const empty = { type: "FeatureCollection", features: [] };
+    const update = () => { const s = map.getSource("patient-origins"); if (s) s.setData(patientOriginsGeoJSON ?? empty); };
+    if (map.getSource("patient-origins")) update(); else map.once("load", update);
+  }, [patientOriginsGeoJSON]);
+
+  // Toggle patient origins layer visibility
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const vis = showPatientOrigins && patientOriginsGeoJSON ? "visible" : "none";
+    const update = () => {
+      if (map.getLayer("patient-origins-fill")) map.setLayoutProperty("patient-origins-fill", "visibility", vis);
+      if (map.getLayer("patient-origins-outline")) map.setLayoutProperty("patient-origins-outline", "visibility", vis);
+    };
+    if (map.getLayer("patient-origins-fill")) update(); else map.once("load", update);
+  }, [showPatientOrigins, patientOriginsGeoJSON]);
+
+  // Sync candidate POI markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const sync = () => {
+      const existing = candidateMarkerMapRef.current;
+      const currentIds = new Set((candidatePOIs ?? []).map((c) => c.id));
+
+      for (const id of Object.keys(existing)) {
+        if (!currentIds.has(id)) { existing[id].marker.remove(); delete existing[id]; }
+      }
+
+      for (const c of (candidatePOIs ?? [])) {
+        if (existing[c.id]) continue;
+
+        // Clean element — no positioning context, so Mapbox's own transform
+        // on this element is not affected by child overflow or stacking contexts.
+        const el = document.createElement("div");
+        el.style.cssText = "width:20px;height:20px;cursor:grab;display:flex;align-items:center;justify-content:center;";
+
+        const diamond = document.createElement("div");
+        diamond.style.cssText = `
+          width:12px;height:12px;
+          background:#d69e2e;
+          border:2px solid #fff;
+          transform:rotate(45deg);
+          box-shadow:0 1px 4px rgba(0,0,0,0.35);
+          flex-shrink:0;
+          pointer-events:none;
+        `;
+        el.appendChild(diamond);
+
+        const popupEl = document.createElement("div");
+        popupEl.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:120px;";
+
+        const nameEl = document.createElement("strong");
+        nameEl.textContent = c.name;
+        nameEl.style.cssText = "font-size:13px;";
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.style.cssText = "padding:3px 8px;font-size:11px;cursor:pointer;background:#e53e3e;color:#fff;border:none;border-radius:3px;margin-top:2px;";
+        const capturedId = c.id;
+        removeBtn.onclick = () => onRemoveCandidateRef.current?.(capturedId);
+
+        popupEl.appendChild(nameEl);
+        popupEl.appendChild(removeBtn);
+
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!marker.getPopup()?.isOpen()) marker.togglePopup();
+        });
+
+        const marker = new mapboxgl.Marker({ element: el, draggable: true })
+          .setLngLat([c.lng, c.lat])
+          .setPopup(new mapboxgl.Popup({ offset: 15, closeButton: true, className: "practice-popup" }).setDOMContent(popupEl))
+          .addTo(map);
+
+        // Hover label lives in the Mapbox-managed wrapper (position:absolute),
+        // NOT inside el, so it never affects el's layout or Mapbox's size calculations.
+        const wrapper = el.parentElement;
+        if (wrapper) {
+          wrapper.style.overflow = "visible";
+          const hoverLabel = document.createElement("div");
+          hoverLabel.textContent = c.name;
+          hoverLabel.style.cssText = `
+            position:absolute;left:22px;top:50%;transform:translateY(-50%);
+            background:rgba(255,255,255,0.93);color:#2d3748;
+            font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;
+            white-space:nowrap;pointer-events:none;
+            box-shadow:0 1px 4px rgba(0,0,0,0.15);display:none;z-index:10;
+          `;
+          wrapper.appendChild(hoverLabel);
+          el.addEventListener("mouseenter", () => { hoverLabel.style.display = "block"; });
+          el.addEventListener("mouseleave", () => { hoverLabel.style.display = "none"; });
+        }
+
+        marker.on("dragend", () => {
+          const { lng, lat } = marker.getLngLat();
+          onUpdateCandidatePositionRef.current?.(capturedId, lng, lat);
+        });
+
+        existing[c.id] = { marker, el };
+      }
+
+      const display = showCandidatesRef.current ? "" : "none";
+      for (const { el } of Object.values(existing)) {
+        el.style.display = display;
+      }
+    };
+
+    if (map.isStyleLoaded()) sync(); else map.once("load", sync);
+  }, [candidatePOIs]);
+
+  // Toggle candidate marker visibility
+  useEffect(() => {
+    const display = showCandidates ? "" : "none";
+    for (const { el } of Object.values(candidateMarkerMapRef.current)) {
+      el.style.display = display;
+    }
+  }, [showCandidates]);
+
+  // Crosshair cursor when in candidate-adding mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = addingCandidateMode ? "crosshair" : "";
+  }, [addingCandidateMode]);
 
   const zoom = (delta) => {
     const map = mapRef.current;

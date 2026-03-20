@@ -55,12 +55,38 @@ export const api = {
   geocodePractice: (id) => request("POST", `/geocode/${id}`),
 
   // Analytics
-  triggerPrecompute: () => request("POST", "/analytics/precompute", {}),
+  triggerPrecompute: (force = false) =>
+    request("POST", `/analytics/precompute?force=${force}`, {}),
   getAnalyticsStatus: () => request("GET", "/analytics/status"),
   getCoverage: (affiliations) =>
     request("GET", `/analytics/coverage?affiliations=${(affiliations || []).join(",")}`),
   getGaps: (params) => request("POST", "/analytics/gaps", params),
   getDensity: () => request("GET", "/analytics/density"),
+
+  // Patient origin datasets
+  listPatientOriginDatasets: () => request("GET", "/patient-origins/datasets"),
+  uploadPatientOrigins: async (practiceId, name, file) => {
+    const fd = new FormData();
+    fd.append("practice_id", practiceId);
+    fd.append("name", name);
+    fd.append("file", file);
+    return request("POST", "/patient-origins/upload", fd);
+  },
+  getPatientOriginsGeoJSON: (datasetId) => request("GET", `/patient-origins/${datasetId}/geojson`),
+  deletePatientOriginDataset: (datasetId) => request("DELETE", `/patient-origins/${datasetId}`),
+
+  // Geocode an arbitrary address string via Mapbox (frontend token, US only)
+  geocodeAddress: async (query) => {
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1&country=US&proximity=-84.388,33.749&types=address,poi`
+    );
+    if (!res.ok) throw new Error("Geocoding request failed");
+    const data = await res.json();
+    if (!data.features?.length) throw new Error("Address not found");
+    const [lng, lat] = data.features[0].center;
+    return { lng, lat };
+  },
 
   // Driving route geometry between two points
   fetchRoute: async (oLng, oLat, tLng, tLat) => {
@@ -92,4 +118,7 @@ export const api = {
     }
     return res.json();
   },
+
+  getTccnCompare: () => request("GET", "/tccn/compare"),
+  triggerTccnScrape: () => request("POST", "/tccn/scrape"),
 };

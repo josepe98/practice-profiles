@@ -1,25 +1,25 @@
+from __future__ import annotations
+
 import os
+from typing import List, Dict, Optional
 import requests
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
-MATRIX_URL = "https://api.mapbox.com/directions-matrix/v1/mapbox/driving/{coords}"
-MATRIX_LIMIT = 24  # max destinations per request (25 total coords including origin)
+OSRM_BASE = os.getenv("OSRM_URL", "http://localhost:5001")
+MATRIX_URL = OSRM_BASE + "/table/v1/driving/{coords}"
+MATRIX_LIMIT = 50  # OSRM default max is 100; 50 keeps requests fast
 
 METERS_PER_MILE = 1609.344
 
 
-def get_distances(origin: dict, targets: list[dict]) -> list[dict]:
+def get_distances(origin: dict, targets: List[dict]) -> List[dict]:
     """
     origin: {"id": ..., "lat": ..., "lng": ...}
     targets: [{"id": ..., "lat": ..., "lng": ...}, ...]
     Returns: [{"id": ..., "miles": float|None, "drive_minutes": float|None}, ...]
     """
-    if not MAPBOX_TOKEN:
-        raise RuntimeError("MAPBOX_TOKEN not set in environment")
-
     results = []
 
     for batch_start in range(0, len(targets), MATRIX_LIMIT):
@@ -30,7 +30,6 @@ def get_distances(origin: dict, targets: list[dict]) -> list[dict]:
         coords_str = ";".join(coords_list)
         url = MATRIX_URL.format(coords=coords_str)
         params = {
-            "access_token": MAPBOX_TOKEN,
             "sources": "0",
             "annotations": "distance,duration",
         }

@@ -31,7 +31,7 @@ function StatusChip({ status }) {
         </div>
         {status.practice_count === 0 && (
           <div style={{ color: "#c05621", marginTop: 2, fontSize: 11 }}>
-            ⚠ No geocoded practices found — geocode practices first
+            No geocoded practices found — geocode practices first
           </div>
         )}
         {d && <div style={{ color: "#a0aec0", fontSize: 11 }}>{d}</div>}
@@ -101,14 +101,14 @@ export default function AnalyticsControls({
         )}
         <button
           style={{ ...s.btn, marginTop: 10, background: status.running ? "#e2e8f0" : "#00A94F", color: status.running ? "#718096" : "#fff" }}
-          onClick={onRunPrecompute}
+          onClick={() => onRunPrecompute(status.done)}
           disabled={status.running}
         >
           {status.done ? "Re-run precompute" : "Run precompute"}
         </button>
         {!status.done && !status.running && (
           <p style={{ fontSize: 11, color: "#a0aec0", marginTop: 6, lineHeight: 1.4 }}>
-            Run once to compute drive distances from all ~1,200 Atlanta MSA census tract centroids to every practice.
+            Run once to compute drive distances from all ~1,200 Atlanta MSA census tract centroids to every practice (via local OSRM — no API costs).
           </p>
         )}
       </div>

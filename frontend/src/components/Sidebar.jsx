@@ -53,6 +53,18 @@ export default function Sidebar({
   onToggleHighways,
   showDensity,
   onToggleDensity,
+  candidatePOIs,
+  showCandidates,
+  onToggleCandidates,
+  addingCandidateMode,
+  onToggleAddingCandidateMode,
+  onClearCandidates,
+  onAddCandidateByAddress,
+  patientOriginDatasets,
+  selectedPatientDatasetId,
+  onSelectPatientDataset,
+  showPatientOrigins,
+  onTogglePatientOrigins,
 }) {
   const hasFilter = filteredResults !== null;
   const displayList = hasFilter ? filteredResults : [];
@@ -74,6 +86,18 @@ export default function Sidebar({
         onToggleHighways={onToggleHighways}
         showDensity={showDensity}
         onToggleDensity={onToggleDensity}
+        candidatePOIs={candidatePOIs}
+        showCandidates={showCandidates}
+        onToggleCandidates={onToggleCandidates}
+        addingCandidateMode={addingCandidateMode}
+        onToggleAddingCandidateMode={onToggleAddingCandidateMode}
+        onClearCandidates={onClearCandidates}
+        onAddCandidateByAddress={onAddCandidateByAddress}
+        patientOriginDatasets={patientOriginDatasets}
+        selectedPatientDatasetId={selectedPatientDatasetId}
+        onSelectPatientDataset={onSelectPatientDataset}
+        showPatientOrigins={showPatientOrigins}
+        onTogglePatientOrigins={onTogglePatientOrigins}
       />
 
       <PopulationPanel data={populationData} />

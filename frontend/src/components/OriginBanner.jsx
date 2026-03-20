@@ -17,9 +17,9 @@ const styles = {
   prompt: {
     padding: "6px 16px",
     fontSize: 13,
-    background: "#fffff0",
-    borderBottom: "1px solid #fefcbf",
-    color: "#744210",
+    background: "#f0faf5",
+    borderBottom: "1px solid #b3e6cc",
+    color: "#00A94F",
     flexShrink: 0,
     display: "flex",
     justifyContent: "space-between",

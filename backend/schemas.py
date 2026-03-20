@@ -9,6 +9,7 @@ class PracticeBase(BaseModel):
     address: str
     phone: Optional[str] = None
     affiliation: Optional[str] = None
+    ownership: Optional[str] = None
     num_mds: int = 0
     num_apps: int = 0
     num_locations: int = 1
@@ -25,6 +26,7 @@ class PracticeUpdate(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     affiliation: Optional[str] = None
+    ownership: Optional[str] = None
     num_mds: Optional[int] = None
     num_apps: Optional[int] = None
     num_locations: Optional[int] = None

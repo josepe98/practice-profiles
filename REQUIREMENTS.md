@@ -269,6 +269,47 @@ Grid search over Metro Atlanta: for each candidate lat/lng, compute how much cur
 
 ---
 
+## Data Sourcing
+
+### Current approach
+Practice data is manually transcribed from health system websites and entered via CSV import or the Practice Table UI. This is labor-intensive but reliable.
+
+### Automated scraping — feasibility assessment (2026-03-12)
+
+Attempted automated extraction of pediatric practice locations from **Piedmont Healthcare** (care.piedmont.org/locations/) and **Nimble**. Both attempts failed to produce complete results.
+
+**Why it's hard:** Major health systems use heavy SPA frameworks (Qwik, React) where:
+- Filtering and pagination are client-side JS only — URL parameters don't apply filters
+- No public REST APIs (internal APIs require session cookies)
+- Browser automation times out on remote Chromium sessions before pagination completes
+- Serialized page data (e.g., Qwik JSON) is opaque and impractical to decode
+
+**Partial success:** Page 1 of Piedmont (20 of 76 pediatric locations) was extractable via JSON-LD structured data (`@type: MedicalBusiness`). Individual practice detail pages are also scrapeable but require one API call per location.
+
+**Sites likely to be scrapeable:**
+- Server-rendered HTML or Next.js SSR
+- URL-based pagination (`?page=2`)
+- Discoverable REST/GraphQL APIs
+- JSON-LD structured data on listing pages
+
+**Sites likely to resist scraping:**
+- Heavy SPA frameworks with client-side-only filtering/pagination
+- Session-gated APIs
+- Infinite scroll without URL pagination
+- Bot detection (Cloudflare, CAPTCHAs)
+
+**Viable approach (not yet implemented):** Replicate Google's indexing strategy:
+1. Use `firecrawl map` to discover all practice detail page URLs (already done — found 191 URLs for Piedmont)
+2. Batch-scrape each individual detail page (each is simple and renders cleanly)
+3. Filter for pages mentioning the target specialty (e.g., "Pediatrics")
+4. Extract name, address, phone from each matching page
+
+This bypasses the problematic listing page pagination entirely. Cost: ~1 firecrawl credit per practice page. The approach is repeatable for future data refreshes.
+
+**Recommendation:** Continue manual data entry for now. The Google-like approach above is the most promising automation path when the cost/benefit justifies it (e.g., refreshing data across multiple health systems).
+
+---
+
 ## Known Constraints / Gotchas
 
 - **Python 3.9**: use `from __future__ import annotations` + `typing` module; no `X | Y` union syntax or `list[X]` at runtime

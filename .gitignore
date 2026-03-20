@@ -35,3 +35,9 @@ Thumbs.db
 # Data files
 *.xlsx
 *.csv
+
+# OSRM data (large OSM extracts + compiled routing files)
+osrm/data/
+
+# Firecrawl cache
+.firecrawl/

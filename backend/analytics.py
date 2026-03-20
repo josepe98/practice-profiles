@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -18,26 +17,25 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
 from database import SessionLocal
-from models import TractDemographic, TractDistance, Practice as PracticeModel
+from models import TractDemographic, Practice as PracticeModel
 
 TIGER_URL = (
     "https://tigerweb.geo.census.gov/arcgis/rest/services/"
     "TIGERweb/tigerWMS_ACS2024/MapServer/8/query"
 )
 CENSUS_BASE = "https://api.census.gov/data/2024/acs/acs5"
-MATRIX_URL = "https://api.mapbox.com/directions-matrix/v1/mapbox/driving/{coords}"
+OSRM_BASE = os.getenv("OSRM_URL", "http://localhost:5001")
+MATRIX_URL = OSRM_BASE + "/table/v1/driving/{coords}"
 
-MATRIX_LIMIT = 24
+MATRIX_LIMIT = 50  # OSRM default max is 100; 50 keeps requests fast
 METERS_PER_MILE = 1609.344
 
 # 10 miles covers all drives ≤ ~30 min in Atlanta.
 # Tracts with no practice within 10 miles are true deserts and use haversine estimates.
 MAX_HAVERSINE_MILES = 10.0
 
-# Parallel Matrix API workers. 4 hides network latency without hammering rate limits.
-# Shared rate limiter enforces ~8 requests/second globally across threads.
-PRECOMPUTE_WORKERS = 4
-API_MIN_INTERVAL = 0.13   # seconds between API calls globally → ~7.5 req/s
+# Parallel workers — OSRM is local so we can use more threads.
+PRECOMPUTE_WORKERS = 8
 
 STATE_FIPS = "13"
 MSA_COUNTIES = [
@@ -63,20 +61,6 @@ _status: Dict = {
     "tract_count": 0,
     "practice_count": 0,
 }
-
-# Thread-safe rate limiter shared across all worker threads
-_api_lock = threading.Lock()
-_last_api_call_time: float = 0.0
-
-
-def _api_sleep() -> None:
-    """Block until at least API_MIN_INTERVAL seconds since the last API call."""
-    global _last_api_call_time
-    with _api_lock:
-        wait = API_MIN_INTERVAL - (time.time() - _last_api_call_time)
-        if wait > 0:
-            time.sleep(wait)
-        _last_api_call_time = time.time()
 
 
 def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -176,7 +160,6 @@ def _compute_tract_distances(
     lat: float,
     lng: float,
     practice_list: List[Dict],
-    mapbox_token: str,
 ) -> List[Dict]:
     """
     Compute drive distances from one tract representative point to all nearby practices.
@@ -203,20 +186,14 @@ def _compute_tract_distances(
         )
         url = MATRIX_URL.format(coords=coords_str)
         params = {
-            "access_token": mapbox_token,
             "sources": "0",
             "annotations": "distance,duration",
         }
-
-        _api_sleep()
 
         matrix_data = None
         for attempt in range(3):
             try:
                 resp = requests.get(url, params=params, timeout=30)
-                if resp.status_code == 429:
-                    time.sleep(2 ** attempt)
-                    continue
                 resp.raise_for_status()
                 matrix_data = resp.json()
                 break
@@ -266,7 +243,7 @@ def _compute_tract_distances(
     return rows
 
 
-def run_precompute(mapbox_token: str, census_key: str) -> None:
+def run_precompute(census_key: str, force: bool = False) -> None:
     _status["running"] = True
     _status["done"] = False
     _status["step"] = "Starting precompute..."
@@ -275,8 +252,7 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
 
     db = SessionLocal()
     try:
-        _status["step"] = "Clearing existing data..."
-        db.execute(text("DELETE FROM tract_distances"))
+        _status["step"] = "Clearing existing demographic data..."
         db.execute(text("DELETE FROM tract_demographics"))
         db.commit()
 
@@ -327,7 +303,7 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
         _status["progress"] = len(MSA_COUNTIES)
         _status["tract_count"] = len(all_tract_geoids)
 
-        # ── Phase 2: drive distances via Mapbox Matrix ────────────────────────
+        # ── Phase 2: drive distances via OSRM ──────────────────────────────
         practices = db.query(PracticeModel).filter(
             PracticeModel.lat.isnot(None),
             PracticeModel.lng.isnot(None),
@@ -335,12 +311,32 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
         practice_list = [{"id": p.id, "lat": p.lat, "lng": p.lng} for p in practices]
         _status["practice_count"] = len(practice_list)
 
-        if not mapbox_token or not practice_list:
-            _status["step"] = "No Mapbox token or geocoded practices — skipping distance computation."
+        if not practice_list:
+            _status["step"] = "No geocoded practices — skipping distance computation."
             _status["done"] = True
             _status["running"] = False
             _status["last_run"] = datetime.now().isoformat()
             return
+
+        # ── Skip-if-fresh: don't recompute if data exists and practice set is unchanged ──
+        if not force:
+            existing_count = db.execute(text("SELECT COUNT(*) FROM tract_distances")).scalar()
+            existing_practice_ids = set(
+                r[0] for r in db.execute(
+                    text("SELECT DISTINCT practice_id FROM tract_distances")
+                ).fetchall()
+            )
+            current_practice_ids = set(p["id"] for p in practice_list)
+            if existing_count > 0 and existing_practice_ids == current_practice_ids:
+                _status["step"] = (
+                    f"Skipped — {existing_count:,} distance records already exist "
+                    f"for the same {len(current_practice_ids)} practices. "
+                    f"Use force=true to recompute."
+                )
+                _status["done"] = True
+                _status["running"] = False
+                _status["last_run"] = _status.get("last_run")
+                return
 
         valid_tracts = [
             t for t in db.query(TractDemographic).all()
@@ -349,6 +345,10 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
         _status["total"] = len(valid_tracts)
         _status["progress"] = 0
 
+        _status["step"] = "Clearing existing distance data..."
+        db.execute(text("DELETE FROM tract_distances"))
+        db.commit()
+
         all_rows: List[Dict] = []
         completed = 0
 
@@ -356,7 +356,7 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
             futures = {
                 executor.submit(
                     _compute_tract_distances,
-                    t.geoid, t.lat, t.lng, practice_list, mapbox_token
+                    t.geoid, t.lat, t.lng, practice_list,
                 ): t.geoid
                 for t in valid_tracts
             }
@@ -366,7 +366,7 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
                     _status["progress"] = completed
                     _status["step"] = (
                         f"Distances: {completed}/{len(valid_tracts)} tracts"
-                        f" · {len(all_rows):,} pairs found…"
+                        f" · {len(all_rows):,} pairs"
                     )
                 try:
                     rows = future.result()
@@ -374,7 +374,6 @@ def run_precompute(mapbox_token: str, census_key: str) -> None:
                 except Exception as e:
                     print(f"Warning: tract {futures[future]} failed: {e}")
 
-        # Bulk INSERT — no per-row SELECTs needed since table was cleared above
         _status["step"] = f"Saving {len(all_rows):,} distance records…"
         if all_rows:
             db.execute(

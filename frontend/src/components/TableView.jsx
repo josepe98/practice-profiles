@@ -4,8 +4,8 @@ import { api } from "../api.js";
 const COLUMNS = [
   { key: "name",          label: "Name",        type: "text",   minWidth: 200 },
   { key: "address",       label: "Address",     type: "text",   minWidth: 280 },
-  { key: "phone",         label: "Phone",       type: "text",   minWidth: 120 },
   { key: "affiliation",   label: "Affiliation", type: "text",   minWidth: 110 },
+  { key: "ownership",     label: "Ownership",   type: "text",   minWidth: 110 },
   { key: "num_mds",       label: "MDs",         type: "number", minWidth: 58  },
   { key: "num_apps",      label: "APPs",        type: "number", minWidth: 58  },
   { key: "num_locations", label: "Locs",        type: "number", minWidth: 58  },
@@ -14,7 +14,7 @@ const COLUMNS = [
 ];
 
 const EMPTY_ROW = {
-  name: "", address: "", phone: "", affiliation: "",
+  name: "", address: "", affiliation: "", ownership: "",
   num_mds: "", num_apps: "", num_locations: "", lat: "", lng: "",
 };
 

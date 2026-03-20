@@ -4,9 +4,11 @@ import Map from "./components/Map.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import OriginBanner from "./components/OriginBanner.jsx";
 import ImportModal from "./components/ImportModal.jsx";
+import PatientOriginsModal from "./components/PatientOriginsModal.jsx";
 import TableView from "./components/TableView.jsx";
 import TractDetailsPanel from "./components/TractDetailsPanel.jsx";
 import AnalyticsView from "./components/AnalyticsView.jsx";
+import TccnCompareView from "./components/TccnCompareView.jsx";
 
 function TractDetailView({ tracts }) {
   return (
@@ -88,11 +90,75 @@ export default function App() {
   const [showTable, setShowTable] = useState(false);
   const [showTractDetail, setShowTractDetail] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showTccnCompare, setShowTccnCompare] = useState(false);
   const [lastFilter, setLastFilter] = useState({ maxMinutes: 10 });
   const [customOrigin, setCustomOrigin] = useState(null); // {lng, lat} or null
   const [densityGeoJSON, setDensityGeoJSON] = useState(null);
   const [showDensity, setShowDensity] = useState(false);
   const [fitAllTrigger, setFitAllTrigger] = useState(0);
+  const [patientOriginDatasets, setPatientOriginDatasets] = useState([]);
+  const [selectedPatientDatasetId, setSelectedPatientDatasetId] = useState(null);
+  const [patientOriginsGeoJSON, setPatientOriginsGeoJSON] = useState(null);
+  const [showPatientOrigins, setShowPatientOrigins] = useState(true);
+  const [showPatientOriginsModal, setShowPatientOriginsModal] = useState(false);
+
+  const [candidatePOIs, setCandidatePOIs] = useState(() => {
+    try { const s = localStorage.getItem("pf_candidates"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [showCandidates, setShowCandidates] = useState(true);
+  const [addingCandidateMode, setAddingCandidateMode] = useState(false);
+
+  // Persist candidate POIs to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("pf_candidates", JSON.stringify(candidatePOIs)); } catch {}
+  }, [candidatePOIs]);
+
+  const handleAddCandidate = useCallback((lngLat) => {
+    const { lng, lat } = lngLat;
+    const name = window.prompt("Name this candidate location:", "New location");
+    if (name === null) { setAddingCandidateMode(false); return; }
+    const id = `cand_${Date.now()}`;
+    setCandidatePOIs((prev) => [...prev, { id, name: name.trim() || "New location", lng, lat }]);
+    setAddingCandidateMode(false);
+  }, []);
+
+  const handleRemoveCandidate = useCallback((id) => {
+    setCandidatePOIs((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const handleClearCandidates = useCallback(() => {
+    if (!window.confirm("Remove all candidate locations?")) return;
+    setCandidatePOIs([]);
+  }, []);
+
+  const handleUpdateCandidatePosition = useCallback((id, lng, lat) => {
+    setCandidatePOIs((prev) => prev.map((c) => c.id === id ? { ...c, lng, lat } : c));
+  }, []);
+
+  const handleAddCandidateByAddress = useCallback(async (name, address) => {
+    const { lng, lat } = await api.geocodeAddress(address);
+    const id = `cand_${Date.now()}`;
+    setCandidatePOIs((prev) => [...prev, { id, name: name.trim() || address, lng, lat }]);
+  }, []);
+
+  const fetchPatientOriginDatasets = useCallback(async () => {
+    try {
+      const data = await api.listPatientOriginDatasets();
+      setPatientOriginDatasets(data);
+    } catch (err) {
+      console.error("Failed to fetch patient origin datasets:", err);
+    }
+  }, []);
+
+  useEffect(() => { fetchPatientOriginDatasets(); }, [fetchPatientOriginDatasets]);
+
+  // Fetch GeoJSON whenever selected dataset changes
+  useEffect(() => {
+    if (!selectedPatientDatasetId) { setPatientOriginsGeoJSON(null); return; }
+    api.getPatientOriginsGeoJSON(selectedPatientDatasetId)
+      .then(setPatientOriginsGeoJSON)
+      .catch((err) => { console.error("Patient origins GeoJSON failed:", err); setPatientOriginsGeoJSON(null); });
+  }, [selectedPatientDatasetId]);
 
   const fetchPractices = useCallback(async () => {
     try {
@@ -179,6 +245,7 @@ export default function App() {
   }, [overlapThreshold]);
 
   const handleOriginSelect = useCallback((id) => {
+    setAddingCandidateMode(false);
     setOriginId(id);
     setCustomOrigin(null);
     setFilteredResults(null);
@@ -304,13 +371,11 @@ export default function App() {
     [originId, customOrigin, visiblePractices, overlapThreshold]
   );
 
-  // On first practice load in a fresh session, fit map to show all markers
+  // On first practice load, fit map to show all markers
   useEffect(() => {
     if (!practices.length || hasInitialFit.current) return;
     hasInitialFit.current = true;
-    if (!sessionStorage.getItem("pf_mapView")) {
-      setFitAllTrigger(n => n + 1);
-    }
+    setFitAllTrigger(n => n + 1);
   }, [practices]);
 
   // After practices load, restore session state: apply saved filter or at least
@@ -464,15 +529,24 @@ export default function App() {
           )}
           <button
             style={{ ...styles.importBtn, background: showAnalytics ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTractDetail(false); }}
+            onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTractDetail(false); setShowTccnCompare(false); }}
           >
             {showAnalytics ? "← Map" : "Analytics"}
           </button>
           <button
             style={{ ...styles.importBtn, background: showTable ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowTable(v => !v); setShowTractDetail(false); setShowAnalytics(false); }}
+            onClick={() => { setShowTable(v => !v); setShowTractDetail(false); setShowAnalytics(false); setShowTccnCompare(false); }}
           >
             {showTable ? "← Map" : "Practice Table"}
+          </button>
+          <button
+            style={{ ...styles.importBtn, background: showTccnCompare ? "#2d6a4f" : "#5A5A5A" }}
+            onClick={() => { setShowTccnCompare(v => !v); setShowTable(false); setShowTractDetail(false); setShowAnalytics(false); }}
+          >
+            {showTccnCompare ? "← Map" : "TCCN Compare"}
+          </button>
+          <button style={styles.importBtn} onClick={() => setShowPatientOriginsModal(true)}>
+            Patient Origins
           </button>
           <button style={styles.importBtn} onClick={() => setShowImport(true)}>
             Import CSV / Excel
@@ -485,6 +559,8 @@ export default function App() {
       <div style={styles.body}>
         {showAnalytics ? (
           <AnalyticsView onClose={() => setShowAnalytics(false)} />
+        ) : showTccnCompare ? (
+          <TccnCompareView />
         ) : showTable ? (
           <TableView practices={practices} onRefresh={fetchPractices} />
         ) : showTractDetail ? (
@@ -507,6 +583,14 @@ export default function App() {
               showDensity={showDensity}
               flyToId={flyToId}
               fitAllTrigger={fitAllTrigger}
+              candidatePOIs={candidatePOIs}
+              showCandidates={showCandidates}
+              addingCandidateMode={addingCandidateMode}
+              onAddCandidate={handleAddCandidate}
+              onRemoveCandidate={handleRemoveCandidate}
+              onUpdateCandidatePosition={handleUpdateCandidatePosition}
+              patientOriginsGeoJSON={patientOriginsGeoJSON}
+              showPatientOrigins={showPatientOrigins}
             />
             <Sidebar
               practices={visiblePractices}
@@ -526,13 +610,34 @@ export default function App() {
               onToggleHighways={() => setShowHighways((v) => !v)}
               showDensity={showDensity}
               onToggleDensity={handleToggleDensity}
+              candidatePOIs={candidatePOIs}
+              showCandidates={showCandidates}
+              onToggleCandidates={() => setShowCandidates((v) => !v)}
+              addingCandidateMode={addingCandidateMode}
+              onToggleAddingCandidateMode={() => setAddingCandidateMode((v) => !v)}
+              onClearCandidates={handleClearCandidates}
+              onAddCandidateByAddress={handleAddCandidateByAddress}
+              patientOriginDatasets={patientOriginDatasets}
+              selectedPatientDatasetId={selectedPatientDatasetId}
+              onSelectPatientDataset={(id) => { setSelectedPatientDatasetId(id); setShowPatientOrigins(true); }}
+              showPatientOrigins={showPatientOrigins}
+              onTogglePatientOrigins={() => setShowPatientOrigins((v) => !v)}
             />
+
           </>
         )}
       </div>
 
       {showImport && (
         <ImportModal onClose={() => setShowImport(false)} onDone={handleImportDone} />
+      )}
+      {showPatientOriginsModal && (
+        <PatientOriginsModal
+          practices={visiblePractices}
+          datasets={patientOriginDatasets}
+          onClose={() => setShowPatientOriginsModal(false)}
+          onRefresh={fetchPatientOriginDatasets}
+        />
       )}
     </div>
   );

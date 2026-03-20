@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, Text, Float, ForeignKey
+from sqlalchemy import Column, Integer, Text, Float, ForeignKey, DateTime
+from datetime import datetime
 from database import Base
 
 
@@ -15,9 +16,35 @@ class Practice(Base):
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
     affiliation = Column(Text, nullable=True)
+    ownership   = Column(Text, nullable=True)
     geocoded = Column(Integer, nullable=False, default=0)
     created_at = Column(Text, nullable=False, default="datetime('now')")
     updated_at = Column(Text, nullable=False, default="datetime('now')")
+
+
+class PatientOriginDataset(Base):
+    __tablename__ = "patient_origin_datasets"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    practice_id = Column(Integer, ForeignKey("practices.id"), nullable=False)
+    name        = Column(Text, nullable=False)
+    uploaded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class PatientOriginRow(Base):
+    __tablename__ = "patient_origin_rows"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    dataset_id = Column(Integer, ForeignKey("patient_origin_datasets.id"), nullable=False)
+    zip_code   = Column(Text, nullable=False)
+    visit_count = Column(Integer, nullable=False)
+
+
+class ZctaBoundary(Base):
+    __tablename__ = "zcta_boundaries"
+
+    zip_code      = Column(Text, primary_key=True)
+    geometry_json = Column(Text, nullable=False)  # GeoJSON geometry object as JSON string
 
 
 class TractDemographic(Base):
@@ -34,6 +61,21 @@ class TractDemographic(Base):
     income_median = Column(Integer)
     land_area_sqm = Column(Float)  # ALAND from Census TIGER (square meters)
     geometry      = Column(Text)   # simplified GeoJSON polygon (JSON string)
+
+
+class TccnDirectoryEntry(Base):
+    __tablename__ = "tccn_directory"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    provider_name  = Column(Text, nullable=False)
+    specialty      = Column(Text, nullable=True)
+    gender         = Column(Text, nullable=True)
+    languages      = Column(Text, nullable=True)
+    practice_name  = Column(Text, nullable=True)
+    street         = Column(Text, nullable=True)
+    city_state_zip = Column(Text, nullable=True)
+    phone          = Column(Text, nullable=True)
+    scraped_at     = Column(DateTime, nullable=False)
 
 
 class TractDistance(Base):

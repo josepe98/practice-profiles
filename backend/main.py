@@ -39,11 +39,13 @@ import matrix as mat
 from importer import import_file
 from tracts import get_population_for_isochrone, get_tract_geojson_for_isochrone, get_tract_details
 from analytics import run_precompute, get_coverage_geojson, get_density_geojson, get_gaps, _status as analytics_status
+from patient_origins import router as patient_origins_router
+from tccn import router as tccn_router
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
 
-# Migrate: add land_area_sqm if missing (SQLite doesn't auto-add new columns)
+# Migrate: add columns that didn't exist in earlier schema versions
 with engine.connect() as conn:
     cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tract_demographics)"))]
     if "land_area_sqm" not in cols:
@@ -51,6 +53,9 @@ with engine.connect() as conn:
         conn.commit()
 
 app = FastAPI(title="Practice Profiles API")
+
+app.include_router(patient_origins_router)
+app.include_router(tccn_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -177,10 +182,10 @@ def population(req: IsochronePopulationRequest):
 # ── Analytics ──────────────────────────────────────────────────────────────────
 
 @app.post("/api/analytics/precompute")
-def trigger_precompute(background_tasks: BackgroundTasks):
+def trigger_precompute(background_tasks: BackgroundTasks, force: bool = False):
     if analytics_status["running"]:
         raise HTTPException(status_code=409, detail="Precompute already running")
-    background_tasks.add_task(run_precompute, MAPBOX_TOKEN, CENSUS_API_KEY)
+    background_tasks.add_task(run_precompute, CENSUS_API_KEY, force)
     return {"started": True}
 
 

@@ -146,9 +146,9 @@ export default function AnalyticsView({ onClose }) {
     else map.once("load", update);
   }, [showHighways]);
 
-  const handleRunPrecompute = useCallback(async () => {
+  const handleRunPrecompute = useCallback(async (force = false) => {
     try {
-      await api.triggerPrecompute();
+      await api.triggerPrecompute(force);
       const s = await api.getAnalyticsStatus().catch(() => null);
       if (s) setStatus(s);
     } catch (e) {
