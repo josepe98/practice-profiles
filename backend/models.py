@@ -78,6 +78,14 @@ class TccnDirectoryEntry(Base):
     scraped_at     = Column(DateTime, nullable=False)
 
 
+class TccnExclusion(Base):
+    __tablename__ = "tccn_exclusions"
+
+    practice_name = Column(Text, primary_key=True)
+    reason        = Column(Text, nullable=True)
+    created_at    = Column(DateTime, nullable=False)
+
+
 class TractDistance(Base):
     __tablename__ = "tract_distances"
 

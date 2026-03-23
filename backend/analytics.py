@@ -62,6 +62,16 @@ _status: Dict = {
     "practice_count": 0,
 }
 
+_demo_status: Dict = {
+    "running": False,
+    "done": False,
+    "step": "",
+    "progress": 0,
+    "total": len(MSA_COUNTIES),
+    "last_run": None,
+    "tract_count": 0,
+}
+
 
 def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 3958.8
@@ -396,6 +406,82 @@ def run_precompute(census_key: str, force: bool = False) -> None:
         _status["running"] = False
         _status["step"] = f"Error: {e}"
         print(f"Precompute failed: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+def run_demographics_only(census_key: str) -> None:
+    """Phase 1 only: fetch TIGER tract boundaries + Census ACS demographics. No distance API calls."""
+    _demo_status["running"] = True
+    _demo_status["done"] = False
+    _demo_status["step"] = "Starting demographics refresh..."
+    _demo_status["progress"] = 0
+    _demo_status["total"] = len(MSA_COUNTIES)
+
+    db = SessionLocal()
+    try:
+        _demo_status["step"] = "Clearing existing demographic data..."
+        db.execute(text("DELETE FROM tract_demographics"))
+        db.commit()
+
+        all_tract_geoids: List[str] = []
+        for i, county in enumerate(MSA_COUNTIES):
+            _demo_status["progress"] = i
+            _demo_status["step"] = f"County {county} ({i + 1}/{len(MSA_COUNTIES)}): tracts + demographics…"
+            try:
+                tiger_tracts = _fetch_county_tracts(STATE_FIPS, county)
+                acs_data = _fetch_county_acs(STATE_FIPS, county, census_key)
+                for tract in tiger_tracts:
+                    demo = acs_data.get(tract["geoid"], {})
+                    existing = db.query(TractDemographic).filter(
+                        TractDemographic.geoid == tract["geoid"]
+                    ).first()
+                    if existing:
+                        existing.lat = tract["lat"]
+                        existing.lng = tract["lng"]
+                        existing.state_fips = tract["state_fips"]
+                        existing.county_fips = tract["county_fips"]
+                        existing.land_area_sqm = tract.get("land_area_sqm")
+                        existing.geometry = tract["geometry_str"]
+                        existing.total_pop = demo.get("total_pop", 0)
+                        existing.under_18 = demo.get("under_18", 0)
+                        existing.under_5 = demo.get("under_5", 0)
+                        existing.income_median = demo.get("income_median")
+                    else:
+                        db.add(TractDemographic(
+                            geoid=tract["geoid"],
+                            lat=tract["lat"],
+                            lng=tract["lng"],
+                            state_fips=tract["state_fips"],
+                            county_fips=tract["county_fips"],
+                            land_area_sqm=tract.get("land_area_sqm"),
+                            geometry=tract["geometry_str"],
+                            total_pop=demo.get("total_pop", 0),
+                            under_18=demo.get("under_18", 0),
+                            under_5=demo.get("under_5", 0),
+                            income_median=demo.get("income_median"),
+                        ))
+                    all_tract_geoids.append(tract["geoid"])
+                db.commit()
+            except Exception as e:
+                print(f"Warning: Failed county {county}: {e}")
+                db.rollback()
+
+        _demo_status["progress"] = len(MSA_COUNTIES)
+        _demo_status["tract_count"] = len(all_tract_geoids)
+        _demo_status["done"] = True
+        _demo_status["running"] = False
+        _demo_status["last_run"] = datetime.now().isoformat()
+        _demo_status["step"] = "Complete"
+
+    except Exception as e:
+        _demo_status["running"] = False
+        _demo_status["step"] = f"Error: {e}"
+        print(f"Demographics refresh failed: {e}")
         try:
             db.rollback()
         except Exception:

@@ -84,6 +84,10 @@ export default function AnalyticsView({ onClose }) {
     running: false, done: false, step: "", progress: 0, total: 0,
     last_run: null, tract_count: 0, practice_count: 0,
   });
+  const [demoStatus, setDemoStatus] = useState({
+    running: false, done: false, step: "", progress: 0, total: 0,
+    last_run: null, tract_count: 0,
+  });
   const [mode, setMode] = useState("coverage");
   const [gaps, setGaps] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -119,6 +123,7 @@ export default function AnalyticsView({ onClose }) {
   // Fetch initial status
   useEffect(() => {
     api.getAnalyticsStatus().then(setStatus).catch(() => {});
+    api.getDemographicsStatus().then(setDemoStatus).catch(() => {});
   }, []);
 
   // Poll while running
@@ -133,6 +138,19 @@ export default function AnalyticsView({ onClose }) {
     }, 2000);
     return () => clearInterval(id);
   }, [status.running]);
+
+  // Poll demographics while running
+  useEffect(() => {
+    if (!demoStatus.running) return;
+    const id = setInterval(async () => {
+      const s = await api.getDemographicsStatus().catch(() => null);
+      if (s) {
+        setDemoStatus(s);
+        if (!s.running) clearInterval(id);
+      }
+    }, 2000);
+    return () => clearInterval(id);
+  }, [demoStatus.running]);
 
   // Toggle highway highlight layer visibility
   useEffect(() => {
@@ -153,6 +171,16 @@ export default function AnalyticsView({ onClose }) {
       if (s) setStatus(s);
     } catch (e) {
       console.error("Trigger precompute failed:", e);
+    }
+  }, []);
+
+  const handleRefreshDemographics = useCallback(async () => {
+    try {
+      await api.triggerDemographicsRefresh();
+      const s = await api.getDemographicsStatus().catch(() => null);
+      if (s) setDemoStatus(s);
+    } catch (e) {
+      console.error("Trigger demographics refresh failed:", e);
     }
   }, []);
 
@@ -254,9 +282,11 @@ export default function AnalyticsView({ onClose }) {
         <div style={{ width: 280, borderRight: "1px solid #e2e8f0", overflowY: "auto", flexShrink: 0, background: "#fafafa" }}>
           <AnalyticsControls
             status={status}
+            demoStatus={demoStatus}
             mode={mode}
             onModeChange={setMode}
             onRunPrecompute={handleRunPrecompute}
+            onRefreshDemographics={handleRefreshDemographics}
             onUpdateCoverage={handleUpdateCoverage}
             onFindGaps={handleFindGaps}
             loading={loading}

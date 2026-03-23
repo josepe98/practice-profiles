@@ -75,42 +75,74 @@ function AffiliationCheckboxes({ selected, onChange }) {
 }
 
 export default function AnalyticsControls({
-  status, mode, onModeChange, onRunPrecompute, onUpdateCoverage, onFindGaps, loading,
-  showHighways, onToggleHighways,
+  status, demoStatus, mode, onModeChange, onRunPrecompute, onRefreshDemographics,
+  onUpdateCoverage, onFindGaps, loading, showHighways, onToggleHighways,
 }) {
   const [coverageAffiliations, setCoverageAffiliations] = useState(DEFAULT_AFFILIATIONS);
   const [gapAffiliations, setGapAffiliations] = useState(DEFAULT_AFFILIATIONS);
   const [minUnder18, setMinUnder18] = useState(1000);
   const [maxMinutes, setMaxMinutes] = useState(20);
 
-  const pct = status.total > 0 ? Math.round((status.progress / status.total) * 100) : 0;
+  const demoPct = (demoStatus?.total > 0)
+    ? Math.round(((demoStatus?.progress ?? 0) / demoStatus.total) * 100)
+    : 0;
 
   return (
     <div>
-      {/* Precompute */}
+      {/* Demographics refresh (Census API — free) */}
       <div style={s.section}>
-        <div style={s.sectionTitle}>Precompute</div>
-        <StatusChip status={status} />
-        {status.running && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ background: "#e2e8f0", borderRadius: 4, overflow: "hidden", height: 6 }}>
-              <div style={{ background: "#00A94F", width: `${pct}%`, height: "100%", transition: "width 0.3s" }} />
+        <div style={s.sectionTitle}>Census Demographics</div>
+        {demoStatus?.running ? (
+          <div style={{ fontSize: 12, color: "#2b6cb0", lineHeight: 1.5 }}>
+            <strong>Running…</strong>
+            <div style={{ color: "#718096", marginTop: 2 }}>{demoStatus.step}</div>
+            <div style={{ background: "#e2e8f0", borderRadius: 4, overflow: "hidden", height: 6, marginTop: 6 }}>
+              <div style={{ background: "#00A94F", width: `${demoPct}%`, height: "100%", transition: "width 0.3s" }} />
             </div>
-            <div style={{ fontSize: 11, color: "#718096", marginTop: 3 }}>{pct}%</div>
+            <div style={{ fontSize: 11, color: "#718096", marginTop: 3 }}>{demoPct}%</div>
+          </div>
+        ) : demoStatus?.done ? (
+          <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+            <span style={{ ...s.chip, background: "#f0fff4", color: "#276749" }}>Ready</span>
+            <div style={{ color: "#4a5568", marginTop: 4 }}>
+              {(demoStatus.tract_count || 0).toLocaleString()} tracts loaded
+            </div>
+            {demoStatus.last_run && (
+              <div style={{ color: "#a0aec0", fontSize: 11 }}>
+                {new Date(demoStatus.last_run).toLocaleString()}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: "#92400e" }}>
+            <span style={{ ...s.chip, background: "#fffbeb", color: "#92400e" }}>Not run</span>
           </div>
         )}
         <button
-          style={{ ...s.btn, marginTop: 10, background: status.running ? "#e2e8f0" : "#00A94F", color: status.running ? "#718096" : "#fff" }}
-          onClick={() => onRunPrecompute(status.done)}
-          disabled={status.running}
+          style={{ ...s.btn, marginTop: 10, background: demoStatus?.running ? "#e2e8f0" : "#00A94F", color: demoStatus?.running ? "#718096" : "#fff" }}
+          onClick={onRefreshDemographics}
+          disabled={demoStatus?.running}
         >
-          {status.done ? "Re-run precompute" : "Run precompute"}
+          {demoStatus?.done ? "Re-fetch demographics" : "Fetch demographics"}
         </button>
-        {!status.done && !status.running && (
-          <p style={{ fontSize: 11, color: "#a0aec0", marginTop: 6, lineHeight: 1.4 }}>
-            Run once to compute drive distances from all ~1,200 Atlanta MSA census tract centroids to every practice (via local OSRM — no API costs).
-          </p>
-        )}
+        <p style={{ fontSize: 11, color: "#a0aec0", marginTop: 6, lineHeight: 1.4, marginBottom: 0 }}>
+          Fetches tract boundaries and ACS population data from the Census Bureau. Free, no API costs.
+        </p>
+      </div>
+
+      {/* Drive-time distances (disabled) */}
+      <div style={{ ...s.section, background: "#f7fafc", opacity: 0.7 }}>
+        <div style={s.sectionTitle}>Drive-time Distances</div>
+        <StatusChip status={status} />
+        <button
+          style={{ ...s.btn, marginTop: 10, background: "#e2e8f0", color: "#a0aec0", cursor: "not-allowed" }}
+          disabled
+        >
+          Recompute distances
+        </button>
+        <p style={{ fontSize: 11, color: "#a0aec0", marginTop: 6, lineHeight: 1.4, marginBottom: 0 }}>
+          Disabled while this tool is shared — recomputing distances uses OSRM/Mapbox and can be expensive at scale. Existing distance data is still used for coverage maps and gap analysis below.
+        </p>
       </div>
 
       {/* Analysis selector */}

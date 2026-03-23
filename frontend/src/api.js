@@ -58,6 +58,8 @@ export const api = {
   triggerPrecompute: (force = false) =>
     request("POST", `/analytics/precompute?force=${force}`, {}),
   getAnalyticsStatus: () => request("GET", "/analytics/status"),
+  triggerDemographicsRefresh: () => request("POST", "/analytics/precompute-demographics", {}),
+  getDemographicsStatus: () => request("GET", "/analytics/demographics-status"),
   getCoverage: (affiliations) =>
     request("GET", `/analytics/coverage?affiliations=${(affiliations || []).join(",")}`),
   getGaps: (params) => request("POST", "/analytics/gaps", params),
@@ -121,4 +123,6 @@ export const api = {
 
   getTccnCompare: () => request("GET", "/tccn/compare"),
   triggerTccnScrape: () => request("POST", "/tccn/scrape"),
+  addTccnExclusion: (practice_name, reason) => request("POST", "/tccn/exclusions", { practice_name, reason }),
+  removeTccnExclusion: (practice_name) => request("DELETE", `/tccn/exclusions/${encodeURIComponent(practice_name)}`),
 };

@@ -38,7 +38,7 @@ import geocoding as geo
 import matrix as mat
 from importer import import_file
 from tracts import get_population_for_isochrone, get_tract_geojson_for_isochrone, get_tract_details
-from analytics import run_precompute, get_coverage_geojson, get_density_geojson, get_gaps, _status as analytics_status
+from analytics import run_precompute, run_demographics_only, get_coverage_geojson, get_density_geojson, get_gaps, _status as analytics_status, _demo_status as demo_status
 from patient_origins import router as patient_origins_router
 from tccn import router as tccn_router
 
@@ -187,6 +187,19 @@ def trigger_precompute(background_tasks: BackgroundTasks, force: bool = False):
         raise HTTPException(status_code=409, detail="Precompute already running")
     background_tasks.add_task(run_precompute, CENSUS_API_KEY, force)
     return {"started": True}
+
+
+@app.post("/api/analytics/precompute-demographics")
+def trigger_demographics(background_tasks: BackgroundTasks):
+    if demo_status["running"]:
+        raise HTTPException(status_code=409, detail="Demographics refresh already running")
+    background_tasks.add_task(run_demographics_only, CENSUS_API_KEY)
+    return {"started": True}
+
+
+@app.get("/api/analytics/demographics-status")
+def demographics_status_endpoint():
+    return demo_status
 
 
 @app.get("/api/analytics/status", response_model=AnalyticsStatus)

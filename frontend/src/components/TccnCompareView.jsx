@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../api.js";
 
-const TAB_MATCHED    = "matched";
-const TAB_DIR_ONLY   = "dir_only";
+const TAB_MATCHED     = "matched";
+const TAB_DIR_ONLY    = "dir_only";
 const TAB_MASTER_ONLY = "master_only";
 
 const s = {
@@ -18,18 +18,16 @@ const s = {
   tableWrap: { flex: 1, overflowY: "auto" },
   table:   { width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "system-ui, sans-serif" },
   th:      { padding: "7px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "#4a5568",
-             borderBottom: "2px solid #e2e8f0", background: "#f7fafc", position: "sticky", top: 0, whiteSpace: "nowrap" },
+             borderBottom: "2px solid #e2e8f0", background: "#f7fafc", position: "sticky", top: 0, whiteSpace: "nowrap", zIndex: 1 },
   td:      { padding: "6px 12px", borderBottom: "1px solid #f0f4f8", verticalAlign: "top" },
-  badge:   (color) => ({
-    display: "inline-block", padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 600,
-    background: color + "22", color: color,
-  }),
   stat:    { display: "inline-flex", flexDirection: "column", alignItems: "center",
-             background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6,
-             padding: "8px 18px", minWidth: 90 },
+             background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 18px", minWidth: 90 },
   statNum: { fontSize: 22, fontWeight: 700, color: "#2d3748" },
   statLbl: { fontSize: 10, color: "#718096", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
   diff:    (n) => ({ fontWeight: 600, color: n > 0 ? "#38a169" : n < 0 ? "#e53e3e" : "#718096" }),
+  sectionHdr: { padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#718096",
+                background: "#f7fafc", borderBottom: "1px solid #e2e8f0",
+                display: "flex", alignItems: "center", gap: 8 },
 };
 
 function ProviderList({ names }) {
@@ -37,10 +35,7 @@ function ProviderList({ names }) {
   if (!names?.length) return <span style={{ color: "#a0aec0" }}>—</span>;
   return (
     <div>
-      <span
-        style={{ color: "#4299e1", cursor: "pointer", fontSize: 11 }}
-        onClick={() => setOpen(v => !v)}
-      >
+      <span style={{ color: "#4299e1", cursor: "pointer", fontSize: 11 }} onClick={() => setOpen(v => !v)}>
         {names.length} provider{names.length !== 1 ? "s" : ""} {open ? "▲" : "▼"}
       </span>
       {open && (
@@ -53,23 +48,19 @@ function ProviderList({ names }) {
 }
 
 export default function TccnCompareView() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
-  const [tab,     setTab]     = useState(TAB_MATCHED);
-  const [search,  setSearch]  = useState("");
+  const [data,     setData]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
+  const [tab,      setTab]      = useState(TAB_MATCHED);
+  const [search,   setSearch]   = useState("");
   const [scraping, setScraping] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
 
   const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await api.getTccnCompare());
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setError(null);
+    try { setData(await api.getTccnCompare()); }
+    catch (e) { setError(e.message); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -77,25 +68,34 @@ export default function TccnCompareView() {
   const handleScrape = async () => {
     if (!window.confirm("Re-scrape the TCCN directory? This takes ~2 minutes.")) return;
     setScraping(true);
+    try { await api.triggerTccnScrape(); await load(); }
+    catch (e) { alert("Scrape failed: " + e.message); }
+    finally { setScraping(false); }
+  };
+
+  const handleUnexclude = async (name) => {
     try {
-      await api.triggerTccnScrape();
+      await api.removeTccnExclusion(name);
       await load();
-    } catch (e) {
-      alert("Scrape failed: " + e.message);
-    } finally {
-      setScraping(false);
-    }
+    } catch (e) { alert("Failed: " + e.message); }
+  };
+
+  const handleExclude = async (name) => {
+    try {
+      await api.addTccnExclusion(name);
+      await load();
+    } catch (e) { alert("Failed: " + e.message); }
   };
 
   const q = search.toLowerCase();
-
   const filtered = useMemo(() => {
-    if (!data) return { matched: [], dir_only: [], master_only: [] };
+    if (!data) return { matched: [], dir_only: [], dir_only_excluded: [], master_only: [] };
     const f = (arr, keys) => !q ? arr : arr.filter(r => keys.some(k => (r[k] ?? "").toLowerCase().includes(q)));
     return {
-      matched:     f(data.matched,     ["dir_name", "master_name", "master_address"]),
-      dir_only:    f(data.dir_only,    ["practice_name"]),
-      master_only: f(data.master_only, ["name", "address"]),
+      matched:          f(data.matched,          ["dir_name", "master_name", "master_address"]),
+      dir_only:         f(data.dir_only,         ["practice_name"]),
+      dir_only_excluded: f(data.dir_only_excluded, ["practice_name"]),
+      master_only:      f(data.master_only,      ["name", "address"]),
     };
   }, [data, q]);
 
@@ -120,8 +120,7 @@ export default function TccnCompareView() {
             </span>
           )}
           <button
-            onClick={handleScrape}
-            disabled={scraping}
+            onClick={handleScrape} disabled={scraping}
             style={{ marginLeft: "auto", padding: "4px 12px", fontSize: 12, borderRadius: 4,
               border: "1px solid #cbd5e0", background: scraping ? "#e2e8f0" : "#fff",
               color: "#4a5568", cursor: scraping ? "not-allowed" : "pointer" }}
@@ -130,7 +129,6 @@ export default function TccnCompareView() {
           </button>
         </div>
 
-        {/* Stats */}
         <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <div style={s.stat}>
             <span style={s.statNum}>{data.directory_total_providers}</span>
@@ -152,13 +150,16 @@ export default function TccnCompareView() {
             <span style={{ ...s.statNum, color: "#c05621" }}>{data.dir_only_count}</span>
             <span style={s.statLbl}>Dir only</span>
           </div>
+          <div style={{ ...s.stat, borderColor: "#e2e8f0" }}>
+            <span style={{ ...s.statNum, color: "#a0aec0" }}>{data.dir_only_excluded_count}</span>
+            <span style={s.statLbl}>Excluded</span>
+          </div>
           <div style={{ ...s.stat, borderColor: "#fed7d7" }}>
             <span style={{ ...s.statNum, color: "#c53030" }}>{data.master_only_count}</span>
             <span style={s.statLbl}>Master only</span>
           </div>
         </div>
 
-        {/* Search */}
         <input
           style={{ marginTop: 10, width: 300, padding: "5px 10px", border: "1px solid #cbd5e0",
             borderRadius: 5, fontSize: 12, outline: "none", boxSizing: "border-box" }}
@@ -175,8 +176,10 @@ export default function TccnCompareView() {
         {tabLabel(TAB_MASTER_ONLY, "Master only",    filtered.master_only.length)}
       </div>
 
-      {/* Table */}
+      {/* Table body */}
       <div style={s.tableWrap}>
+
+        {/* ── MATCHED ── */}
         {tab === TAB_MATCHED && (
           <table style={s.table}>
             <thead>
@@ -215,29 +218,97 @@ export default function TccnCompareView() {
           </table>
         )}
 
+        {/* ── DIRECTORY ONLY ── */}
         {tab === TAB_DIR_ONLY && (
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>Directory practice name</th>
-                <th style={{ ...s.th, textAlign: "right" }}>Providers</th>
-                <th style={{ ...s.th, textAlign: "right" }}>Locations</th>
-                <th style={s.th}>Providers list</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.dir_only.map((r, i) => (
-                <tr key={i}>
-                  <td style={s.td}>{r.practice_name}</td>
-                  <td style={{ ...s.td, textAlign: "right" }}>{r.provider_count}</td>
-                  <td style={{ ...s.td, textAlign: "right" }}>{r.location_count}</td>
-                  <td style={s.td}><ProviderList names={r.provider_names} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div>
+            {/* Potential additions */}
+            {filtered.dir_only.length > 0 && (
+              <>
+                <div style={s.sectionHdr}>
+                  <span style={{ color: "#c05621" }}>●</span>
+                  Potential additions to master table ({filtered.dir_only.length})
+                </div>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Directory practice name</th>
+                      <th style={{ ...s.th, textAlign: "right" }}>Providers</th>
+                      <th style={{ ...s.th, textAlign: "right" }}>Locations</th>
+                      <th style={s.th}>Providers list</th>
+                      <th style={s.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.dir_only.map((r, i) => (
+                      <tr key={i}>
+                        <td style={s.td}>{r.practice_name}</td>
+                        <td style={{ ...s.td, textAlign: "right" }}>{r.provider_count}</td>
+                        <td style={{ ...s.td, textAlign: "right" }}>{r.location_count}</td>
+                        <td style={s.td}><ProviderList names={r.provider_names} /></td>
+                        <td style={{ ...s.td }}>
+                          <button
+                            onClick={() => handleExclude(r.practice_name)}
+                            style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3,
+                              border: "1px solid #e2e8f0", background: "#fff",
+                              color: "#718096", cursor: "pointer" }}
+                            title="Move to excluded list"
+                          >Exclude</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+            {filtered.dir_only.length === 0 && !showExcluded && (
+              <div style={{ padding: 20, color: "#a0aec0", fontSize: 13 }}>No unexcluded directory-only practices.</div>
+            )}
+
+            {/* Excluded section */}
+            <div
+              style={{ ...s.sectionHdr, cursor: "pointer", marginTop: filtered.dir_only.length > 0 ? 8 : 0 }}
+              onClick={() => setShowExcluded(v => !v)}
+            >
+              <span style={{ color: "#a0aec0" }}>●</span>
+              Excluded — not for master table ({filtered.dir_only_excluded.length})
+              <span style={{ marginLeft: "auto", fontSize: 12 }}>{showExcluded ? "▲ Hide" : "▼ Show"}</span>
+            </div>
+            {showExcluded && (
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Practice name</th>
+                    <th style={s.th}>Reason</th>
+                    <th style={{ ...s.th, textAlign: "right" }}>Providers</th>
+                    <th style={s.th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.dir_only_excluded.map((r, i) => (
+                    <tr key={i} style={{ opacity: 0.55 }}>
+                      <td style={s.td}>{r.practice_name}</td>
+                      <td style={{ ...s.td, fontSize: 11, color: "#718096" }}>
+                        {data.dir_only_excluded.find(x => x.practice_name === r.practice_name)?.reason ?? "—"}
+                      </td>
+                      <td style={{ ...s.td, textAlign: "right" }}>{r.provider_count}</td>
+                      <td style={{ ...s.td }}>
+                        <button
+                          onClick={() => handleUnexclude(r.practice_name)}
+                          style={{ fontSize: 11, padding: "2px 8px", borderRadius: 3,
+                            border: "1px solid #e2e8f0", background: "#fff",
+                            color: "#4299e1", cursor: "pointer" }}
+                          title="Move back to active list"
+                        >Un-exclude</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         )}
 
+        {/* ── MASTER ONLY ── */}
         {tab === TAB_MASTER_ONLY && (
           <table style={s.table}>
             <thead>
