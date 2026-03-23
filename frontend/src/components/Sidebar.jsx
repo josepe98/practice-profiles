@@ -1,71 +1,85 @@
-import React from "react";
+import React, { useState } from "react";
 import FilterBar from "./FilterBar.jsx";
 import PracticeCard from "./PracticeCard.jsx";
 import SearchBar from "./SearchBar.jsx";
 import PopulationPanel from "./PopulationPanel.jsx";
 
-const styles = {
+const s = {
   sidebar: {
-    width: 320,
-    flexShrink: 0,
-    display: "flex",
-    flexDirection: "column",
-    borderLeft: "1px solid #e2e8f0",
-    background: "#fff",
-    overflow: "hidden",
+    width: 320, flexShrink: 0, display: "flex", flexDirection: "column",
+    borderLeft: "1px solid #e2e8f0", background: "#fff", overflow: "hidden",
   },
+  sectionHeader: {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#718096",
+    textTransform: "uppercase", letterSpacing: "0.05em",
+    background: "#f7fafc", borderBottom: "1px solid #e2e8f0",
+    cursor: "pointer", userSelect: "none", flexShrink: 0,
+  },
+  fixedHeader: {
+    padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#718096",
+    textTransform: "uppercase", letterSpacing: "0.05em",
+    background: "#f7fafc", borderBottom: "1px solid #e2e8f0", flexShrink: 0,
+  },
+  sectionBody: { padding: "12px 14px", borderBottom: "1px solid #e2e8f0" },
   listHeader: {
-    padding: "8px 16px",
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#4a5568",
-    background: "#f7fafc",
-    borderBottom: "1px solid #e2e8f0",
-    flexShrink: 0,
+    padding: "8px 16px", fontSize: 12, fontWeight: 600, color: "#4a5568",
+    background: "#f7fafc", borderBottom: "1px solid #e2e8f0", flexShrink: 0,
   },
-  list: {
-    flex: 1,
-    overflowY: "auto",
+  list: { flex: 1, overflowY: "auto" },
+  empty: { padding: 20, fontSize: 13, color: "#a0aec0", textAlign: "center" },
+  checkRow: {
+    display: "flex", alignItems: "center", gap: 6,
+    cursor: "pointer", userSelect: "none", marginBottom: 6,
   },
-  empty: {
-    padding: 20,
-    fontSize: 13,
-    color: "#a0aec0",
-    textAlign: "center",
-  },
+  checkLabel: { fontSize: 12, color: "#4a5568" },
 };
 
+function CollapsibleSection({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ flexShrink: 0 }}>
+      <div style={s.sectionHeader} onClick={() => setOpen((v) => !v)}>
+        <span>{title}</span>
+        <span style={{ fontSize: 10, color: "#a0aec0" }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && <div style={s.sectionBody}>{children}</div>}
+    </div>
+  );
+}
+
 export default function Sidebar({
-  practices,
-  originId,
-  customOrigin,
-  filteredResults,
-  populationData,
-  showTracts,
-  onToggleTracts,
-  overlapThreshold,
-  onThresholdChange,
-  loading,
-  onFilter,
-  onClearFilter,
-  onSearchSelect,
-  showHighways,
-  onToggleHighways,
-  showDensity,
-  onToggleDensity,
-  candidatePOIs,
-  showCandidates,
-  onToggleCandidates,
-  addingCandidateMode,
-  onToggleAddingCandidateMode,
-  onClearCandidates,
+  practices, originId, customOrigin, filteredResults, populationData,
+  showTracts, onToggleTracts, overlapThreshold, onThresholdChange,
+  loading, onFilter, onClearFilter, onSearchSelect,
+  showHighways, onToggleHighways, showDensity, onToggleDensity,
+  candidatePOIs, showCandidates, onToggleCandidates,
+  addingCandidateMode, onToggleAddingCandidateMode, onClearCandidates,
   onAddCandidateByAddress,
-  patientOriginDatasets,
-  selectedPatientDatasetId,
-  onSelectPatientDataset,
-  showPatientOrigins,
-  onTogglePatientOrigins,
+  patientOriginDatasets, selectedPatientDatasetId, onSelectPatientDataset,
+  showPatientOrigins, onTogglePatientOrigins,
+  showTractDetail, onToggleTractDetail,
 }) {
+  const [candName, setCandName]       = useState("");
+  const [candAddress, setCandAddress] = useState("");
+  const [candLoading, setCandLoading] = useState(false);
+  const [candError, setCandError]     = useState(null);
+
+  const handleAddByAddress = async () => {
+    if (!candAddress.trim()) return;
+    setCandLoading(true);
+    setCandError(null);
+    try {
+      await onAddCandidateByAddress(candName, candAddress);
+      setCandName("");
+      setCandAddress("");
+    } catch (err) {
+      setCandError(err.message ?? "Address not found");
+    } finally {
+      setCandLoading(false);
+    }
+  };
+
   const hasFilter = filteredResults !== null;
   const displayList = hasFilter ? filteredResults : [];
   const count = hasFilter ? filteredResults.length : practices.length;
@@ -74,72 +88,200 @@ export default function Sidebar({
   const hasOrigin = origin != null || customOrigin != null;
 
   return (
-    <div style={styles.sidebar}>
+    <div style={s.sidebar}>
+      {/* Search — always visible at top */}
       <SearchBar practices={practices} onSelect={onSearchSelect} />
-      <FilterBar
-        originId={originId}
-        customOrigin={customOrigin}
-        loading={loading}
-        onFilter={onFilter}
-        onClearFilter={onClearFilter}
-        showHighways={showHighways}
-        onToggleHighways={onToggleHighways}
-        showDensity={showDensity}
-        onToggleDensity={onToggleDensity}
-        candidatePOIs={candidatePOIs}
-        showCandidates={showCandidates}
-        onToggleCandidates={onToggleCandidates}
-        addingCandidateMode={addingCandidateMode}
-        onToggleAddingCandidateMode={onToggleAddingCandidateMode}
-        onClearCandidates={onClearCandidates}
-        onAddCandidateByAddress={onAddCandidateByAddress}
-        patientOriginDatasets={patientOriginDatasets}
-        selectedPatientDatasetId={selectedPatientDatasetId}
-        onSelectPatientDataset={onSelectPatientDataset}
-        showPatientOrigins={showPatientOrigins}
-        onTogglePatientOrigins={onTogglePatientOrigins}
-      />
 
-      <PopulationPanel data={populationData} />
-      {populationData && (
-        <div style={{ padding: "6px 14px", borderBottom: "1px solid #e2e8f0", background: "#f7fafc", display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            onClick={onToggleTracts}
-            style={{
-              fontSize: 12,
-              padding: "4px 10px",
-              borderRadius: 4,
-              border: `1px solid ${showTracts ? "#6b46c1" : "#cbd5e0"}`,
-              background: showTracts ? "#6b46c1" : "#fff",
-              color: showTracts ? "#fff" : "#4a5568",
-              cursor: "pointer",
-              fontWeight: 500,
-            }}
-          >
-            {showTracts ? "Hide census tracts" : "Show census tracts"}
-          </button>
-          <select
-            value={Math.round(overlapThreshold * 100)}
-            onChange={(e) => onThresholdChange(parseInt(e.target.value, 10) / 100)}
-            title="Minimum % of tract area inside polygon"
-            style={{
-              fontSize: 12,
-              padding: "3px 6px",
-              borderRadius: 4,
-              border: "1px solid #cbd5e0",
-              background: "#fff",
-              color: "#4a5568",
-              cursor: "pointer",
-            }}
-          >
-            {[20, 40, 60, 80, 100].map((pct) => (
-              <option key={pct} value={pct}>{pct}% overlap</option>
-            ))}
-          </select>
+      {/* ── Catchment Analysis ─────────────────────────────────── */}
+      <div style={{ flexShrink: 0 }}>
+        <div style={s.fixedHeader}>Catchment Analysis</div>
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid #e2e8f0" }}>
+          <FilterBar
+            originId={originId}
+            customOrigin={customOrigin}
+            loading={loading}
+            onFilter={onFilter}
+            onClearFilter={onClearFilter}
+          />
         </div>
-      )}
 
-      <div style={styles.listHeader}>
+        {/* Population results — shown only when active */}
+        {populationData && (
+          <>
+            <PopulationPanel data={populationData} />
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #e2e8f0", background: "#f7fafc", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={onToggleTracts}
+                style={{
+                  fontSize: 12, padding: "4px 10px", borderRadius: 4,
+                  border: `1px solid ${showTracts ? "#6b46c1" : "#cbd5e0"}`,
+                  background: showTracts ? "#6b46c1" : "#fff",
+                  color: showTracts ? "#fff" : "#4a5568",
+                  cursor: "pointer", fontWeight: 500,
+                }}
+              >
+                {showTracts ? "Hide census tracts" : "Show census tracts"}
+              </button>
+              <select
+                value={Math.round(overlapThreshold * 100)}
+                onChange={(e) => onThresholdChange(parseInt(e.target.value, 10) / 100)}
+                title="Minimum % of tract area inside polygon"
+                style={{
+                  fontSize: 12, padding: "3px 6px", borderRadius: 4,
+                  border: "1px solid #cbd5e0", background: "#fff",
+                  color: "#4a5568", cursor: "pointer",
+                }}
+              >
+                {[20, 40, 60, 80, 100].map((pct) => (
+                  <option key={pct} value={pct}>{pct}% overlap</option>
+                ))}
+              </select>
+              <button
+                onClick={onToggleTractDetail}
+                style={{
+                  fontSize: 12, padding: "4px 10px", borderRadius: 4,
+                  border: `1px solid ${showTractDetail ? "#2d6a4f" : "#cbd5e0"}`,
+                  background: showTractDetail ? "#2d6a4f" : "#fff",
+                  color: showTractDetail ? "#fff" : "#4a5568",
+                  cursor: "pointer", fontWeight: 500,
+                }}
+              >
+                {showTractDetail ? "← Close detail" : "Tract detail"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Map Layers ─────────────────────────────────────────── */}
+      <CollapsibleSection title="Map Layers">
+        <label style={s.checkRow}>
+          <input
+            type="checkbox" checked={showDensity ?? false} onChange={onToggleDensity}
+            style={{ accentColor: "#3182ce", width: 13, height: 13, cursor: "pointer" }}
+          />
+          <span style={s.checkLabel}>Pediatric population density</span>
+        </label>
+        <label style={s.checkRow}>
+          <input
+            type="checkbox" checked={showHighways ?? false} onChange={onToggleHighways}
+            style={{ accentColor: "#f59e0b", width: 13, height: 13, cursor: "pointer" }}
+          />
+          <span style={s.checkLabel}>Highlight freeways &amp; major highways</span>
+        </label>
+
+        {(patientOriginDatasets?.length ?? 0) > 0 && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 4 }}>
+              Patient origins by zip code
+            </div>
+            <select
+              value={selectedPatientDatasetId ?? ""}
+              onChange={(e) => onSelectPatientDataset(e.target.value ? Number(e.target.value) : null)}
+              style={{ width: "100%", boxSizing: "border-box", padding: "4px 7px", fontSize: 12, borderRadius: 4, border: "1px solid #cbd5e0", marginBottom: 4 }}
+            >
+              <option value="">— none —</option>
+              {patientOriginDatasets.map((d) => (
+                <option key={d.id} value={d.id}>{d.name} ({d.practice_name})</option>
+              ))}
+            </select>
+            {selectedPatientDatasetId && (
+              <label style={{ ...s.checkRow, marginBottom: 0 }}>
+                <input
+                  type="checkbox" checked={showPatientOrigins ?? true} onChange={onTogglePatientOrigins}
+                  style={{ accentColor: "#bd0026", width: 13, height: 13, cursor: "pointer" }}
+                />
+                <span style={s.checkLabel}>Show layer</span>
+                <span style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
+                  {["#f7fcf5", "#c7e9c0", "#74c476", "#238b45", "#00441b"].map((c, i) => (
+                    <span key={i} style={{ width: 12, height: 12, background: c, display: "inline-block", borderRadius: 1 }} />
+                  ))}
+                  <span style={{ fontSize: 10, color: "#718096", marginLeft: 3 }}>low → high</span>
+                </span>
+              </label>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* ── Candidate Locations ────────────────────────────────── */}
+      <CollapsibleSection title="Candidate Locations">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <button
+            onClick={onToggleAddingCandidateMode}
+            style={{
+              padding: "4px 10px", fontSize: 12, fontWeight: 500, borderRadius: 4,
+              border: `1px solid ${addingCandidateMode ? "#c05621" : "#cbd5e0"}`,
+              background: addingCandidateMode ? "#c05621" : "#fff",
+              color: addingCandidateMode ? "#fff" : "#4a5568",
+              cursor: "pointer",
+            }}
+          >
+            {addingCandidateMode ? "Click map to place… (cancel)" : "Drop pin on map"}
+          </button>
+          {(candidatePOIs?.length ?? 0) > 0 && (
+            <button
+              onClick={onClearCandidates}
+              style={{
+                padding: "4px 10px", fontSize: 12, borderRadius: 4,
+                border: "1px solid #cbd5e0", background: "#fff",
+                color: "#e53e3e", cursor: "pointer",
+              }}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+
+        {(candidatePOIs?.length ?? 0) > 0 && (
+          <label style={{ ...s.checkRow, marginBottom: 8 }}>
+            <input
+              type="checkbox" checked={showCandidates ?? true} onChange={onToggleCandidates}
+              style={{ accentColor: "#d69e2e", width: 13, height: 13, cursor: "pointer" }}
+            />
+            <span style={s.checkLabel}>Show pins ({candidatePOIs.length})</span>
+          </label>
+        )}
+
+        <div style={{ paddingTop: 8, borderTop: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 5 }}>
+            Add by address
+          </div>
+          <input
+            placeholder="Name (optional)"
+            value={candName}
+            onChange={(e) => setCandName(e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", padding: "4px 7px", fontSize: 12, borderRadius: 4, border: "1px solid #cbd5e0", marginBottom: 4 }}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              placeholder="Address or place"
+              value={candAddress}
+              onChange={(e) => { setCandAddress(e.target.value); setCandError(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAddByAddress(); }}
+              style={{ flex: 1, padding: "4px 7px", fontSize: 12, borderRadius: 4, border: `1px solid ${candError ? "#e53e3e" : "#cbd5e0"}` }}
+            />
+            <button
+              onClick={handleAddByAddress}
+              disabled={candLoading || !candAddress.trim()}
+              style={{
+                padding: "4px 10px", fontSize: 12, fontWeight: 500,
+                borderRadius: 4, border: "none",
+                background: candLoading || !candAddress.trim() ? "#cbd5e0" : "#d69e2e",
+                color: "#fff",
+                cursor: candLoading || !candAddress.trim() ? "not-allowed" : "pointer",
+                flexShrink: 0,
+              }}
+            >
+              {candLoading ? "…" : "Add"}
+            </button>
+          </div>
+          {candError && <div style={{ fontSize: 11, color: "#e53e3e", marginTop: 3 }}>{candError}</div>}
+        </div>
+      </CollapsibleSection>
+
+      {/* ── Practice list ──────────────────────────────────────── */}
+      <div style={s.listHeader}>
         {hasFilter
           ? `${count} practice${count !== 1 ? "s" : ""} within range (${total} total)`
           : hasOrigin
@@ -147,15 +289,11 @@ export default function Sidebar({
           : `${total} practice${total !== 1 ? "s" : ""} — click map or marker to begin`}
       </div>
 
-      <div style={styles.list}>
+      <div style={s.list}>
         {!hasOrigin && (
-          <div style={styles.empty}>
-            Click a marker or anywhere on the map to set an origin.
-          </div>
+          <div style={s.empty}>Click a marker or anywhere on the map to set an origin.</div>
         )}
-
         {origin && <PracticeCard practice={origin} />}
-
         {customOrigin && !origin && (
           <div style={{ padding: "10px 16px", borderBottom: "1px solid #e2e8f0", fontSize: 13, color: "#4a5568" }}>
             <strong style={{ color: "#e53e3e" }}>Custom location</strong>
@@ -164,21 +302,14 @@ export default function Sidebar({
             </div>
           </div>
         )}
-
         {hasOrigin && !hasFilter && (
-          <div style={styles.empty}>
-            Set a drive time or distance filter to see nearby practices.
-          </div>
+          <div style={s.empty}>Set a drive time or distance filter to see nearby practices.</div>
         )}
-
         {hasFilter && (
-          <div style={styles.listHeader}>
-            {count} practice{count !== 1 ? "s" : ""} in range
-          </div>
+          <div style={s.listHeader}>{count} practice{count !== 1 ? "s" : ""} in range</div>
         )}
-
         {hasFilter && displayList.length === 0 && (
-          <div style={styles.empty}>No practices found within the specified range.</div>
+          <div style={s.empty}>No practices found within the specified range.</div>
         )}
         {displayList.map((p) => (
           <PracticeCard key={p.id} practice={p} small />

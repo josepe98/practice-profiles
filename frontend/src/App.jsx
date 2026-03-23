@@ -88,7 +88,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showHighways, setShowHighways] = useState(false);
   const [showTable, setShowTable] = useState(false);
-  const [showTractDetail, setShowTractDetail] = useState(false);
+  const [sidebarTractDetail, setSidebarTractDetail] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showTccnCompare, setShowTccnCompare] = useState(false);
   const [lastFilter, setLastFilter] = useState({ maxMinutes: 10 });
@@ -452,7 +452,7 @@ export default function App() {
 
   // Close tract detail panel when its data is no longer available
   useEffect(() => {
-    if (!tractDetails) setShowTractDetail(false);
+    if (!tractDetails) { setSidebarTractDetail(false); }
   }, [tractDetails]);
 
   const handleImportDone = useCallback(() => {
@@ -518,38 +518,36 @@ export default function App() {
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {tractDetails && (
-            <button
-              style={{ ...styles.importBtn, background: showTractDetail ? "#2d6a4f" : "#5A5A5A" }}
-              onClick={() => { setShowTractDetail(v => !v); setShowTable(false); }}
-            >
-              {showTractDetail ? "← Map" : "Tract Detail"}
-            </button>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {/* Views */}
           <button
             style={{ ...styles.importBtn, background: showAnalytics ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTractDetail(false); setShowTccnCompare(false); }}
+            onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTccnCompare(false); }}
           >
             {showAnalytics ? "← Map" : "Analytics"}
           </button>
           <button
             style={{ ...styles.importBtn, background: showTable ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowTable(v => !v); setShowTractDetail(false); setShowAnalytics(false); setShowTccnCompare(false); }}
+            onClick={() => { setShowTable(v => !v); setShowAnalytics(false); setShowTccnCompare(false); }}
           >
             {showTable ? "← Map" : "Practice Table"}
           </button>
           <button
             style={{ ...styles.importBtn, background: showTccnCompare ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowTccnCompare(v => !v); setShowTable(false); setShowTractDetail(false); setShowAnalytics(false); }}
+            onClick={() => { setShowTccnCompare(v => !v); setShowTable(false); setShowAnalytics(false); }}
           >
             {showTccnCompare ? "← Map" : "TCCN Compare"}
           </button>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.3)", margin: "0 4px" }} />
+
+          {/* Data actions */}
           <button style={styles.importBtn} onClick={() => setShowPatientOriginsModal(true)}>
             Patient Origins
           </button>
           <button style={styles.importBtn} onClick={() => setShowImport(true)}>
-            Import CSV / Excel
+            Import
           </button>
         </div>
       </header>
@@ -563,7 +561,7 @@ export default function App() {
           <TccnCompareView />
         ) : showTable ? (
           <TableView practices={practices} onRefresh={fetchPractices} />
-        ) : showTractDetail ? (
+        ) : sidebarTractDetail ? (
           <TractDetailView tracts={tractDetails} />
         ) : (
           <>
@@ -622,6 +620,8 @@ export default function App() {
               onSelectPatientDataset={(id) => { setSelectedPatientDatasetId(id); setShowPatientOrigins(true); }}
               showPatientOrigins={showPatientOrigins}
               onTogglePatientOrigins={() => setShowPatientOrigins((v) => !v)}
+              showTractDetail={sidebarTractDetail}
+              onToggleTractDetail={() => setSidebarTractDetail((v) => !v)}
             />
 
           </>
