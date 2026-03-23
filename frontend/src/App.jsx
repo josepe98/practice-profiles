@@ -105,7 +105,7 @@ export default function App() {
   const [candidatePOIs, setCandidatePOIs] = useState(() => {
     try { const s = localStorage.getItem("pf_candidates"); return s ? JSON.parse(s) : []; } catch { return []; }
   });
-  const [showCandidates, setShowCandidates] = useState(true);
+  const [showCandidates, setShowCandidates] = useState(false);
   const [addingCandidateMode, setAddingCandidateMode] = useState(false);
 
   // Persist candidate POIs to localStorage

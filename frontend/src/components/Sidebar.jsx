@@ -236,7 +236,7 @@ export default function Sidebar({
         {(candidatePOIs?.length ?? 0) > 0 && (
           <label style={{ ...s.checkRow, marginBottom: 8 }}>
             <input
-              type="checkbox" checked={showCandidates ?? true} onChange={onToggleCandidates}
+              type="checkbox" checked={showCandidates ?? false} onChange={onToggleCandidates}
               style={{ accentColor: "#d69e2e", width: 13, height: 13, cursor: "pointer" }}
             />
             <span style={s.checkLabel}>Show pins ({candidatePOIs.length})</span>
