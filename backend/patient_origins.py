@@ -16,6 +16,8 @@ from models import PatientOriginDataset, PatientOriginRow, Practice, ZctaBoundar
 
 router = APIRouter(prefix="/api/patient-origins", tags=["patient-origins"])
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
 ZCTA_API = (
     "https://tigerweb.geo.census.gov/arcgis/rest/services/"
     "TIGERweb/PUMA_TAD_TAZ_UGA_ZCTA/MapServer/1/query"
@@ -174,7 +176,9 @@ async def upload_dataset(
     if not practice:
         raise HTTPException(status_code=404, detail="Practice not found")
 
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (10 MB max)")
     try:
         parsed = parse_upload(content, file.filename or "upload")
     except ValueError as exc:

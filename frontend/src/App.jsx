@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { api } from "./api.js";
+import { supabase } from "./supabaseClient.js";
+import LoginPage from "./components/LoginPage.jsx";
 import Map from "./components/Map.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import OriginBanner from "./components/OriginBanner.jsx";
@@ -67,6 +69,27 @@ function affiliationColor(affiliation) {
 }
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (s?.access_token) {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+        fetch(`${apiBase}/api/auth/login-event`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${s.access_token}` },
+        }).catch(() => {});
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [practices, setPractices] = useState([]);
   const [originId, setOriginId] = useState(() => {
     const s = sessionStorage.getItem("pf_originId");
@@ -481,6 +504,15 @@ export default function App() {
   const origin = visiblePractices.find((p) => p.id === originId) ?? null;
   const hasOrigin = origin != null || customOrigin != null;
 
+  if (authLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#718096", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!session) return <LoginPage />;
+
   return (
     <div style={styles.app}>
       <header style={styles.header}>
@@ -548,6 +580,17 @@ export default function App() {
           </button>
           <button style={styles.importBtn} onClick={() => setShowImport(true)}>
             Import
+          </button>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.3)", margin: "0 4px" }} />
+
+          <button
+            style={{ ...styles.importBtn, background: "rgba(255,255,255,0.15)" }}
+            onClick={() => supabase.auth.signOut()}
+            title={session?.user?.email}
+          >
+            Sign out
           </button>
         </div>
       </header>

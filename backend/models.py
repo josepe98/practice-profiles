@@ -18,8 +18,8 @@ class Practice(Base):
     affiliation = Column(Text, nullable=True)
     ownership   = Column(Text, nullable=True)
     geocoded = Column(Integer, nullable=False, default=0)
-    created_at = Column(Text, nullable=False, default="datetime('now')")
-    updated_at = Column(Text, nullable=False, default="datetime('now')")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class PatientOriginDataset(Base):
@@ -93,3 +93,12 @@ class TractDistance(Base):
     practice_id = Column(Integer, ForeignKey("practices.id"), primary_key=True)
     miles         = Column(Float)
     drive_minutes = Column(Float)
+
+
+class UserLogin(Base):
+    __tablename__ = "user_logins"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Text, nullable=False)   # Supabase auth UUID
+    email        = Column(Text, nullable=False)
+    logged_in_at = Column(DateTime, nullable=False, default=datetime.utcnow)

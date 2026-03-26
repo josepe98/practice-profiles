@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-OSRM_BASE = os.getenv("OSRM_URL", "http://localhost:5001")
-MATRIX_URL = OSRM_BASE + "/table/v1/driving/{coords}"
-MATRIX_LIMIT = 50  # OSRM default max is 100; 50 keeps requests fast
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
+MATRIX_URL = "https://api.mapbox.com/directions-matrix/v1/mapbox/driving/{coords}"
+MATRIX_LIMIT = 24  # Mapbox Matrix API max is 25 coordinates (1 origin + 24 destinations)
 
 METERS_PER_MILE = 1609.344
 
@@ -32,6 +32,7 @@ def get_distances(origin: dict, targets: List[dict]) -> List[dict]:
         params = {
             "sources": "0",
             "annotations": "distance,duration",
+            "access_token": MAPBOX_TOKEN,
         }
         try:
             resp = requests.get(url, params=params, timeout=30)

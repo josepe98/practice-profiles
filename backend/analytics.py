@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -24,18 +25,23 @@ TIGER_URL = (
     "TIGERweb/tigerWMS_ACS2024/MapServer/8/query"
 )
 CENSUS_BASE = "https://api.census.gov/data/2024/acs/acs5"
-OSRM_BASE = os.getenv("OSRM_URL", "http://localhost:5001")
-MATRIX_URL = OSRM_BASE + "/table/v1/driving/{coords}"
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
+MATRIX_URL = "https://api.mapbox.com/directions-matrix/v1/mapbox/driving/{coords}"
 
-MATRIX_LIMIT = 50  # OSRM default max is 100; 50 keeps requests fast
+MATRIX_LIMIT = 24  # Mapbox Matrix API max is 25 coordinates (1 origin + 24 destinations)
 METERS_PER_MILE = 1609.344
 
 # 10 miles covers all drives ≤ ~30 min in Atlanta.
 # Tracts with no practice within 10 miles are true deserts and use haversine estimates.
 MAX_HAVERSINE_MILES = 10.0
 
-# Parallel workers — OSRM is local so we can use more threads.
-PRECOMPUTE_WORKERS = 8
+# Parallel workers — remote API, keep low to stay within rate limits.
+PRECOMPUTE_WORKERS = 4
+# Minimum seconds between Mapbox Matrix API calls across all threads.
+API_MIN_INTERVAL = 0.13
+
+_api_lock = threading.Lock()
+_api_last_call: float = 0.0
 
 STATE_FIPS = "13"
 MSA_COUNTIES = [
@@ -198,11 +204,18 @@ def _compute_tract_distances(
         params = {
             "sources": "0",
             "annotations": "distance,duration",
+            "access_token": MAPBOX_TOKEN,
         }
 
         matrix_data = None
         for attempt in range(3):
             try:
+                global _api_last_call
+                with _api_lock:
+                    elapsed = time.time() - _api_last_call
+                    if elapsed < API_MIN_INTERVAL:
+                        time.sleep(API_MIN_INTERVAL - elapsed)
+                    _api_last_call = time.time()
                 resp = requests.get(url, params=params, timeout=30)
                 resp.raise_for_status()
                 matrix_data = resp.json()
@@ -388,7 +401,7 @@ def run_precompute(census_key: str, force: bool = False) -> None:
         if all_rows:
             db.execute(
                 text(
-                    "INSERT OR REPLACE INTO tract_distances "
+                    "INSERT INTO tract_distances "
                     "(geoid, practice_id, miles, drive_minutes) "
                     "VALUES (:geoid, :practice_id, :miles, :drive_minutes)"
                 ),

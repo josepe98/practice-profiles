@@ -1,10 +1,15 @@
-const BASE = "/api";
+import { supabase } from "./supabaseClient.js";
+
+const API_HOST = import.meta.env.VITE_API_BASE_URL || "";
+const BASE = `${API_HOST}/api`;
 
 async function request(method, path, body) {
-  const opts = {
-    method,
-    headers: body instanceof FormData ? {} : { "Content-Type": "application/json" },
-  };
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers = body instanceof FormData ? {} : { "Content-Type": "application/json" };
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
+  const opts = { method, headers };
   if (body) {
     opts.body = body instanceof FormData ? body : JSON.stringify(body);
   }
