@@ -75,13 +75,10 @@ function AffiliationCheckboxes({ selected, onChange }) {
 }
 
 export default function AnalyticsControls({
-  status, demoStatus, mode, onModeChange, onRunPrecompute, onRefreshDemographics,
-  onUpdateCoverage, onFindGaps, loading, showHighways, onToggleHighways,
+  status, demoStatus, onRunPrecompute, onRefreshDemographics,
+  onUpdateCoverage, loading, showHighways, onToggleHighways,
 }) {
   const [coverageAffiliations, setCoverageAffiliations] = useState(DEFAULT_AFFILIATIONS);
-  const [gapAffiliations, setGapAffiliations] = useState(DEFAULT_AFFILIATIONS);
-  const [minUnder18, setMinUnder18] = useState(1000);
-  const [maxMinutes, setMaxMinutes] = useState(20);
 
   const demoPct = (demoStatus?.total > 0)
     ? Math.round(((demoStatus?.progress ?? 0) / demoStatus.total) * 100)
@@ -145,75 +142,18 @@ export default function AnalyticsControls({
         </p>
       </div>
 
-      {/* Analysis selector */}
-      <div style={s.section}>
-        <div style={s.sectionTitle}>Analysis</div>
-        {["coverage", "gaps"].map((m) => (
-          <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "#2d3748", marginBottom: 6 }}>
-            <input
-              type="radio"
-              name="analysis-mode"
-              value={m}
-              checked={mode === m}
-              onChange={() => onModeChange(m)}
-              style={{ accentColor: "#00A94F", cursor: "pointer" }}
-            />
-            {m === "coverage" ? "Coverage heat map" : "Gap finder"}
-          </label>
-        ))}
-      </div>
-
       {/* Coverage controls */}
-      {mode === "coverage" && (
-        <div style={s.section}>
-          <div style={s.sectionTitle}>Coverage by affiliation</div>
-          <AffiliationCheckboxes selected={coverageAffiliations} onChange={setCoverageAffiliations} />
-          <button
-            style={{ ...s.btn, marginTop: 10, background: loading ? "#e2e8f0" : "#3182ce", color: loading ? "#718096" : "#fff", opacity: loading ? 0.7 : 1 }}
-            onClick={() => onUpdateCoverage(coverageAffiliations)}
-            disabled={loading}
-          >
-            {loading ? "Loading…" : "Update map"}
-          </button>
-        </div>
-      )}
-
-      {/* Gap finder controls */}
-      {mode === "gaps" && (
-        <div style={s.section}>
-          <div style={s.sectionTitle}>Coverage by affiliation</div>
-          <AffiliationCheckboxes selected={gapAffiliations} onChange={setGapAffiliations} />
-          <div style={{ marginTop: 12 }}>
-            <label style={s.label}>Min children under 18</label>
-            <input
-              style={s.input}
-              type="number"
-              min="0"
-              step="100"
-              value={minUnder18}
-              onChange={(e) => setMinUnder18(Number(e.target.value))}
-            />
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <label style={s.label}>Max drive time to nearest practice (min)</label>
-            <input
-              style={s.input}
-              type="number"
-              min="0"
-              step="5"
-              value={maxMinutes}
-              onChange={(e) => setMaxMinutes(Number(e.target.value))}
-            />
-          </div>
-          <button
-            style={{ ...s.btn, marginTop: 12, background: loading ? "#e2e8f0" : "#e53e3e", color: loading ? "#718096" : "#fff", opacity: loading ? 0.7 : 1 }}
-            onClick={() => onFindGaps({ affiliations: gapAffiliations, min_under_18: minUnder18, max_minutes: maxMinutes })}
-            disabled={loading}
-          >
-            {loading ? "Loading…" : "Find gaps"}
-          </button>
-        </div>
-      )}
+      <div style={s.section}>
+        <div style={s.sectionTitle}>Coverage by affiliation</div>
+        <AffiliationCheckboxes selected={coverageAffiliations} onChange={setCoverageAffiliations} />
+        <button
+          style={{ ...s.btn, marginTop: 10, background: loading ? "#e2e8f0" : "#3182ce", color: loading ? "#718096" : "#fff", opacity: loading ? 0.7 : 1 }}
+          onClick={() => onUpdateCoverage(coverageAffiliations)}
+          disabled={loading}
+        >
+          {loading ? "Loading…" : "Update map"}
+        </button>
+      </div>
 
       {/* Map options */}
       <div style={{ ...s.section, borderBottom: "none" }}>

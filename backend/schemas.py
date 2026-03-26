@@ -101,20 +101,3 @@ class AnalyticsStatus(BaseModel):
     last_run: Optional[str] = None
     tract_count: int
     practice_count: int
-
-
-class GapResult(BaseModel):
-    geoid: str
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-    under_18: int
-    income_median: Optional[int] = None
-    covered_miles: float
-    covered_minutes: float
-    any_miles: Optional[float] = None
-
-
-class GapRequest(BaseModel):
-    min_under_18: int = 1000
-    max_minutes: float = 20.0
-    affiliations: List[str] = ["Children's", "TCCN"]

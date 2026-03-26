@@ -30,15 +30,13 @@ from schemas import (
     PopulationResult,
     TractDetail,
     AnalyticsStatus,
-    GapResult,
-    GapRequest,
 )
 import crud
 import geocoding as geo
 import matrix as mat
 from importer import import_file
 from tracts import get_population_for_isochrone, get_tract_geojson_for_isochrone, get_tract_details
-from analytics import run_precompute, run_demographics_only, get_coverage_geojson, get_density_geojson, get_gaps, _status as analytics_status, _demo_status as demo_status
+from analytics import run_precompute, run_demographics_only, get_coverage_geojson, get_density_geojson, _status as analytics_status, _demo_status as demo_status
 from patient_origins import router as patient_origins_router
 from tccn import router as tccn_router
 
@@ -218,9 +216,6 @@ def density(db: Session = Depends(get_db)):
     return get_density_geojson(db)
 
 
-@app.post("/api/analytics/gaps", response_model=List[GapResult])
-def gaps(req: GapRequest, db: Session = Depends(get_db)):
-    return get_gaps(db, req.min_under_18, req.max_minutes, req.affiliations)
 
 
 # ── Re-geocode ─────────────────────────────────────────────────────────────────

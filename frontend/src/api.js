@@ -62,7 +62,6 @@ export const api = {
   getDemographicsStatus: () => request("GET", "/analytics/demographics-status"),
   getCoverage: (affiliations) =>
     request("GET", `/analytics/coverage?affiliations=${(affiliations || []).join(",")}`),
-  getGaps: (params) => request("POST", "/analytics/gaps", params),
   getDensity: () => request("GET", "/analytics/density"),
 
   // Patient origin datasets
