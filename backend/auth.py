@@ -20,5 +20,6 @@ def require_auth(authorization: str = Header(default=None)) -> dict:
             options={"verify_aud": False},
         )
         return payload
-    except JWTError:
+    except JWTError as e:
+        print(f"[auth] JWT validation failed: {e} | secret_len={len(SUPABASE_JWT_SECRET)}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
