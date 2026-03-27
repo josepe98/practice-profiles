@@ -57,7 +57,7 @@ def require_auth(authorization: str = Header(default=None)) -> dict:
                 algorithms=["HS256"],
                 options={"verify_aud": False},
             )
-        elif alg == "RS256":
+        elif alg in ("RS256", "ES256"):
             kid = header.get("kid")
             keys = _get_jwks()
             key = next((k for k in keys if k.get("kid") == kid), keys[0] if keys else None)
@@ -66,7 +66,7 @@ def require_auth(authorization: str = Header(default=None)) -> dict:
             payload = jwt.decode(
                 token,
                 key,
-                algorithms=["RS256"],
+                algorithms=["RS256", "ES256"],
                 options={"verify_aud": False},
             )
         else:
