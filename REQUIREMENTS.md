@@ -46,18 +46,24 @@ How practice data for each affiliation was originally obtained:
 
 ## Tech Stack
 
-- **Backend**: Python 3.9 + FastAPI + SQLAlchemy + SQLite
+- **Backend**: Python 3.11 + FastAPI + SQLAlchemy
 - **Frontend**: React + Vite + Mapbox GL JS
 - **Routing**: Mapbox Matrix API (drive times + distances, batched in groups of 24)
 - **Geocoding**: Mapbox Geocoding API
 - **Isochrones**: Mapbox Isochrone API
 - **Population data**: US Census ACS 5-year estimates (B01001 age by sex, B19013 median HH income, B19001 HH income brackets)
 - **Tract boundaries**: Census TIGER/Web API (ACS 2022, MapServer layer 8)
-- **Database**: SQLite (single file, auto-created as `practices.db`)
+- **Database**: Supabase PostgreSQL (transaction pooler, port 6543)
 
-### Running ports
-- Backend: **8001** (uvicorn)
-- Frontend: **5174** (Vite dev server)
+### Deployment
+- **Backend**: Railway → `https://practice-profiles-production.up.railway.app`
+- **Frontend**: Vercel → `https://practice-profiles.vercel.app`
+- There is no local running instance. SQLite support has been removed.
+
+### Development workflow
+- **Frontend changes**: Run `npm run dev` in `frontend/` — the dev server talks directly to the Railway backend. No local backend needed.
+- **Backend changes**: Edit code locally, push to main, Railway redeploys automatically. There is no staging environment; be deliberate about backend changes before pushing.
+- **DATABASE_URL is required**: The backend will not start without it. Set it in your environment or `.env` file pointing to Supabase.
 
 ---
 
