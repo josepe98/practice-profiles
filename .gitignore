@@ -41,3 +41,8 @@ osrm/data/
 
 # Firecrawl cache
 .firecrawl/
+
+# Maintenance scripts (local only)
+railway_usage_report.py
+railway_usage_report.log
+com.erikjosephson.railwayusagereport.plist
