@@ -23,6 +23,27 @@ The app tracks both own-network practices (Children's, TCCN) and competitor prac
 
 ---
 
+## Data Sources
+
+How practice data for each affiliation was originally obtained:
+
+| Affiliation | Source | Method | Notes |
+|---|---|---|---|
+| TCCN | `tccn-choa.org/provider-directory` | Automated scraper (`backend/scrape_tccn.py`) | Server-rendered, paginated — scrapes cleanly. Re-scrape available via UI. |
+| Wellstar | Wellstar website | Unknown — likely scraped in a prior Claude session | Result saved as `wellstar_pediatrics.csv` in repo root; imported into DB (42 practices). Phone numbers and coordinates were missing from CSV and geocoded separately. |
+| Piedmont | `care.piedmont.org/locations/` | Screenshots read by Claude | Site uses Qwik SPA with client-side-only pagination; automated scraping only retrieved page 1 (20 of 76 locations). Remainder entered manually from screenshots. Research scripts in `.firecrawl/scratchpad/`. |
+| Children's | "Strategy Google Map" | Manual entry from a lightly-maintained internal Google Map | Believed to be complete and correct but source is not systematically updated. |
+| Playground Pediatrics | `playgroundpediatrics.com/our-practices` | Automated scraper (`test-folder/georgia_checker.py`) | Georgia locations only; monitored weekly for changes. |
+| Zarminali | `zarminali.com/locations` | Automated scraper (`test-folder/georgia_checker.py`) | Georgia locations only; monitored weekly for changes. |
+
+### Refreshing data
+
+- **TCCN**: Use the "Re-scrape directory" button in the TCCN Compare tab.
+- **Wellstar / Piedmont**: No automated refresh path exists. Wellstar would need a scraper built; Piedmont likely requires the batch detail-page approach documented in `.firecrawl/scratchpad/` (firecrawl map → batch individual practice pages).
+- **Children's**: Check the "Strategy Google Map" for updates and manually enter any changes via the app.
+
+---
+
 ## Tech Stack
 
 - **Backend**: Python 3.9 + FastAPI + SQLAlchemy + SQLite
