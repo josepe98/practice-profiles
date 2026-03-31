@@ -229,7 +229,7 @@ All analytics depend on a one-time batch job (and re-run when practices change):
 1. Fetch all ~1,200 census tract centroids in the 29-county MSA from TIGER API
 2. Fetch ACS demographics per tract (population by age, median income)
 3. For each tract centroid, compute drive time + distance to each practice via Mapbox Matrix (batched; skip pairs with straight-line distance >25 miles)
-4. Store results in `tract_demographics` and `tract_distances` SQLite tables
+4. Store results in `tract_demographics` and `tract_distances` tables
 
 Estimated runtime: 5–10 minutes. UI shows: precompute button, last-run timestamp, tract count, practice count at time of last run.
 
@@ -337,6 +337,36 @@ This bypasses the problematic listing page pagination entirely. Cost: ~1 firecra
 
 ---
 
+## Authentication
+
+All access is gated behind Supabase Auth. There is no public registration — accounts are created by an admin via the Supabase dashboard.
+
+### Login flow
+- Email + password only (`supabase.auth.signInWithPassword`)
+- Session managed by Supabase client (JWT + refresh token stored in `localStorage`)
+- JWT validated by the backend on every request via `Authorization: Bearer` header
+- Login events recorded in `user_logins` table (user_id, email, timestamp)
+
+### Forgot password flow
+1. User clicks "Forgot password?" on the login page and submits their email
+2. Frontend calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })`
+3. Supabase emails a one-time reset link
+4. User clicks the link → redirected back to the app with a `PASSWORD_RECOVERY` token in the URL hash
+5. App detects the `PASSWORD_RECOVERY` event in `onAuthStateChange` and renders `ResetPasswordForm`
+6. User sets a new password via `supabase.auth.updateUser({ password })`
+7. On success, `USER_UPDATED` fires and the user is dropped into the main app
+
+### User management
+- Accounts created in Supabase dashboard → Authentication → Users → Invite user
+- Invite emails a magic link; user is authenticated on first click but must use "Forgot password?" to set a password before logging out
+- No self-service registration or admin UI within the app
+
+### Session persistence
+- Active users stay logged in indefinitely via automatic JWT refresh
+- After extended inactivity (refresh token expiry, configurable in Supabase), users must log in again via password or the forgot-password flow
+
+---
+
 ## Known Constraints / Gotchas
 
 - **Python 3.9**: use `from __future__ import annotations` + `typing` module; no `X | Y` union syntax or `list[X]` at runtime
@@ -344,7 +374,6 @@ This bypasses the problematic listing page pagination entirely. Cost: ~1 firecra
 - **Mapbox Isochrone**: profile=`driving`, contours_minutes param; returns GeoJSON FeatureCollection
 - **TIGER API**: may return tracts from multiple states if bounding box crosses state line
 - **Shapely**: use `.area` for overlap ratios (degree² units consistent for ratio calculations)
-- **SQLite**: `check_same_thread=False` required in `create_engine`
 - **Map source readiness**: always gate source updates on `map.getSource("name")` existence, not `isStyleLoaded()` — the latter fires before `load` and is unreliable as a readiness gate
 - **WebGL context loss**: on context recovery, `style.load` fires again and all programmatically-added sources/layers are cleared; re-add sources checking `!map.getSource(...)` before `setData`; preserve data in refs for this purpose
 - **sessionStorage**: all session state (origin, filter, map view) uses sessionStorage; new browser tab starts fresh
@@ -367,10 +396,9 @@ practice-profiles/
 ├── REQUIREMENTS.md
 ├── .env
 ├── .gitignore
-├── start.sh
-├── practices.db
 ├── backend/
 │   ├── main.py
+│   ├── auth.py
 │   ├── database.py
 │   ├── models.py
 │   ├── schemas.py
@@ -379,7 +407,7 @@ practice-profiles/
 │   ├── matrix.py
 │   ├── importer.py
 │   ├── tracts.py
-│   ├── analytics.py           ← planned
+│   ├── analytics.py
 │   └── requirements.txt
 └── frontend/
     ├── index.html
@@ -389,7 +417,10 @@ practice-profiles/
         ├── main.jsx
         ├── App.jsx
         ├── api.js
+        ├── supabaseClient.js
         └── components/
+            ├── LoginPage.jsx
+            ├── ResetPasswordForm.jsx
             ├── Map.jsx
             ├── Sidebar.jsx
             ├── FilterBar.jsx
@@ -400,7 +431,7 @@ practice-profiles/
             ├── SearchBar.jsx
             ├── TableView.jsx
             ├── TractDetailsPanel.jsx
-            ├── AnalyticsView.jsx      ← planned
-            ├── AnalyticsControls.jsx  ← planned
-            └── AnalyticsResults.jsx   ← planned
+            ├── AnalyticsView.jsx
+            ├── AnalyticsControls.jsx
+            └── AnalyticsResults.jsx
 ```
