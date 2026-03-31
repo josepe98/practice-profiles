@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { api } from "./api.js";
 import { supabase } from "./supabaseClient.js";
 import LoginPage from "./components/LoginPage.jsx";
+import ResetPasswordForm from "./components/ResetPasswordForm.jsx";
 import Map from "./components/Map.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import OriginBanner from "./components/OriginBanner.jsx";
@@ -71,15 +72,25 @@ function affiliationColor(affiliation) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsResettingPassword(true);
+        setSession(s);
+        setAuthLoading(false);
+        return;
+      }
+      if (event === "USER_UPDATED") {
+        setIsResettingPassword(false);
+      }
       setSession(s);
-      if (s?.access_token) {
+      if (s?.access_token && event === "SIGNED_IN") {
         const apiBase = import.meta.env.VITE_API_BASE_URL || "";
         fetch(`${apiBase}/api/auth/login-event`, {
           method: "POST",
@@ -512,6 +523,7 @@ export default function App() {
     );
   }
   if (!session) return <LoginPage />;
+  if (isResettingPassword) return <ResetPasswordForm />;
 
   return (
     <div style={styles.app}>
