@@ -184,7 +184,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { fetchPatientOriginDatasets(); }, [fetchPatientOriginDatasets]);
+  useEffect(() => { if (!session) return; fetchPatientOriginDatasets(); }, [fetchPatientOriginDatasets, session]);
 
   // Fetch GeoJSON whenever selected dataset changes
   useEffect(() => {
@@ -204,8 +204,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!session) return;
     fetchPractices();
-  }, [fetchPractices]);
+  }, [fetchPractices, session]);
 
   // Practices visible on the map/sidebar — excludes permanently hidden affiliations
   const HIDDEN = new Set(["Wellstar Peds Specialty"]);
