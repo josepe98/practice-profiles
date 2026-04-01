@@ -566,24 +566,28 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {/* Views */}
-          <button
-            style={{ ...styles.importBtn, background: showAnalytics ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTccnCompare(false); }}
-          >
-            {showAnalytics ? "← Map" : "Analytics"}
-          </button>
+          {session?.user?.email === "erik.josephson@choa.org" && (
+            <button
+              style={{ ...styles.importBtn, background: showAnalytics ? "#2d6a4f" : "#5A5A5A" }}
+              onClick={() => { setShowAnalytics(v => !v); setShowTable(false); setShowTccnCompare(false); }}
+            >
+              {showAnalytics ? "← Map" : "Analytics"}
+            </button>
+          )}
           <button
             style={{ ...styles.importBtn, background: showTable ? "#2d6a4f" : "#5A5A5A" }}
             onClick={() => { setShowTable(v => !v); setShowAnalytics(false); setShowTccnCompare(false); }}
           >
             {showTable ? "← Map" : "Practice Table"}
           </button>
-          <button
-            style={{ ...styles.importBtn, background: showTccnCompare ? "#2d6a4f" : "#5A5A5A" }}
-            onClick={() => { setShowTccnCompare(v => !v); setShowTable(false); setShowAnalytics(false); }}
-          >
-            {showTccnCompare ? "← Map" : "TCCN Compare"}
-          </button>
+          {session?.user?.email === "erik.josephson@choa.org" && (
+            <button
+              style={{ ...styles.importBtn, background: showTccnCompare ? "#2d6a4f" : "#5A5A5A" }}
+              onClick={() => { setShowTccnCompare(v => !v); setShowTable(false); setShowAnalytics(false); }}
+            >
+              {showTccnCompare ? "← Map" : "TCCN Compare"}
+            </button>
+          )}
 
           {/* Divider */}
           <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.3)", margin: "0 4px" }} />
