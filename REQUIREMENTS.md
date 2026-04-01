@@ -285,14 +285,28 @@ Grid search over Metro Atlanta: for each candidate lat/lng, compute how much cur
 
 ### Map markers
 
-| Affiliation | Color |
-|---|---|
-| Children's / TCCN | `#00A94F` (CHOA green) |
-| Wellstar | `#8246AF` (Wellstar purple, Pantone 2587C) |
-| Piedmont | `#ec5829` (Piedmont orange-red) |
-| Other | `#718096` (gray) |
-| Origin (selected) | `#e53e3e` (red) |
-| In-range (filtered) | `#3182ce` (blue) |
+| Affiliation | Color | Notes |
+|---|---|---|
+| Children's / TCCN | `#00A94F` | CHOA green |
+| Wellstar | `#8246AF` | Wellstar purple, Pantone 2587C |
+| Piedmont | `#ec5829` | Piedmont orange-red |
+| Zarminali | `#5D0D3A` | Deep plum (from zarminali.com) |
+| Playground | `#4e8cb7` | Darker blue (from playgroundpediatrics.com) |
+| Aylo Health | `#F26628` | Aylo orange; marker has serif "a" label to distinguish from Piedmont |
+| Other | `#718096` | Gray |
+| Origin (selected) | `#e53e3e` | Red |
+| In-range (filtered) | `#2563eb` | Blue |
+
+### Brand color reference
+
+| Organization | Hex | Source |
+|---|---|---|
+| CHOA (Children's) | `#00A94F` (green), `#5A5A5A` (gray) | CHOA brand guidelines |
+| Wellstar | `#8246AF` | Pantone 2587C |
+| Piedmont | `#ec5829` | brandfetch.com/piedmonthospital.org |
+| Zarminali | `#5D0D3A` | zarminali.com footer |
+| Playground | `#4e8cb7` | playgroundpediatrics.com darkAccent HSL |
+| Aylo Health | `#F26628` (primary), `#E7510E` (hover/dark variant) | aylohealth.com SVG fills |
 
 ---
 
