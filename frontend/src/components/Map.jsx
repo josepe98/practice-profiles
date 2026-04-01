@@ -12,6 +12,7 @@ const COLORS = {
   piedmont:  "#ec5829",
   zarminali:  "#5D0D3A",
   playground: "#4e8cb7",
+  aylo:       "#F26628",
   default:    "#718096",
 };
 
@@ -123,12 +124,14 @@ function pickColor(id, originId, filteredIds, practiceMap) {
   const isPiedmont   = affiliation === "piedmont";
   const isZarminali  = affiliation === "zarminali";
   const isPlayground = affiliation.includes("playground");
+  const isAylo       = affiliation === "aylo health";
   if (filteredIds != null && filteredIds.has(id)) {
     if (isWellstar)    return COLORS.wellstar;
     if (isChoa)        return COLORS.choa;
     if (isPiedmont)    return COLORS.piedmont;
     if (isZarminali)   return COLORS.zarminali;
     if (isPlayground)  return COLORS.playground;
+    if (isAylo)        return COLORS.aylo;
     return COLORS.filtered;
   }
   if (isWellstar)    return COLORS.wellstar;
@@ -136,6 +139,7 @@ function pickColor(id, originId, filteredIds, practiceMap) {
   if (isPiedmont)    return COLORS.piedmont;
   if (isZarminali)   return COLORS.zarminali;
   if (isPlayground)  return COLORS.playground;
+  if (isAylo)        return COLORS.aylo;
   return COLORS.default;
 }
 
@@ -530,17 +534,26 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
 
         const el = document.createElement("div");
         const aff = p.affiliation ?? "";
-        el.style.cssText = `width:14px;height:14px;cursor:pointer;${hiddenAffiliationsRef.current.has(aff) ? "display:none;" : ""}`;
+        const isAyloMarker = aff.toLowerCase() === "aylo health";
+        const markerSize = isAyloMarker ? 18 : 14;
+        el.style.cssText = `width:${markerSize}px;height:${markerSize}px;cursor:pointer;${hiddenAffiliationsRef.current.has(aff) ? "display:none;" : ""}`;
 
         const dot = document.createElement("div");
         dot.style.cssText = `
-          width:14px; height:14px;
+          width:${markerSize}px; height:${markerSize}px;
           background:${pickColor(p.id, originIdRef.current, filteredIdsRef.current, practiceMap)};
           border-radius:50%;
           border:2px solid #fff;
           box-shadow:0 1px 4px rgba(0,0,0,0.3);
           transition:transform 0.15s;
+          ${isAyloMarker ? "display:flex;align-items:center;justify-content:center;" : ""}
         `;
+        if (isAyloMarker) {
+          const label = document.createElement("span");
+          label.textContent = "a";
+          label.style.cssText = "color:#fff;font-size:10px;font-weight:700;font-family:serif;line-height:1;margin-top:1px;pointer-events:none;";
+          dot.appendChild(label);
+        }
         el.appendChild(dot);
 
         el.addEventListener("mouseenter", () => {

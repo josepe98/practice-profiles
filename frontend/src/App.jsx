@@ -66,6 +66,7 @@ function affiliationColor(affiliation) {
   if (aff === "piedmont") return "#ec5829";
   if (aff === "zarminali") return "#5D0D3A";
   if (aff.includes("playground")) return "#4e8cb7";
+  if (aff === "aylo health") return "#F26628";
   return "#4a5568";
 }
 
