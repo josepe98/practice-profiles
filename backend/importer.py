@@ -12,6 +12,7 @@ COLUMN_ALIASES = {
     "address":       ["address"],  # may be assembled from parts — handled separately
     "phone":         ["phone", "phone number"],
     "affiliation":   ["affiliation", "group", "network", "system"],
+    "ownership":     ["ownership", "owner", "owner name"],
     "num_mds":       ["num_mds", "physicians", "mds", "doctors", "num mds"],
     "num_apps":      ["num_apps", "apps", "num apps", "app count"],
     "num_locations": ["num_locations", "total practice locations", "locations", "num locations"],
@@ -92,6 +93,7 @@ def import_file(file_bytes: bytes, filename: str, db: Session) -> dict:
             "address":       address,
             "phone":         _clean(row.get(col_map.get("phone",        "__missing__"), "")),
             "affiliation":   _clean(row.get(col_map.get("affiliation",  "__missing__"), "")) or None,
+            "ownership":     _clean(row.get(col_map.get("ownership",    "__missing__"), "")) or None,
             "num_mds":       _int(row.get(col_map.get("num_mds",        "__missing__"), None), 0),
             "num_apps":      _int(row.get(col_map.get("num_apps",       "__missing__"), None), 0),
             "num_locations": _int(row.get(col_map.get("num_locations",  "__missing__"), None), 1),
