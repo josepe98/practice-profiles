@@ -35,7 +35,10 @@ def get_distances(origin: dict, targets: List[dict]) -> List[dict]:
             "access_token": MAPBOX_TOKEN,
         }
         try:
-            resp = requests.get(url, params=params, timeout=30)
+            resp = requests.get(url, params=params, timeout=30, headers={
+                "Referer": "https://practice-profiles.vercel.app",
+                "Origin": "https://practice-profiles.vercel.app",
+            })
             resp.raise_for_status()
             data = resp.json()
             distances = data.get("distances", [[]])[0]

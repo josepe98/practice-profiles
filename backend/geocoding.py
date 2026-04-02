@@ -24,7 +24,10 @@ def geocode_address(address: str) -> Optional[Tuple[float, float]]:
         "country": "US",
     }
     try:
-        resp = requests.get(url, params=params, timeout=10)
+        resp = requests.get(url, params=params, timeout=10, headers={
+                "Referer": "https://practice-profiles.vercel.app",
+                "Origin": "https://practice-profiles.vercel.app",
+            })
         resp.raise_for_status()
         data = resp.json()
         features = data.get("features", [])
