@@ -42,7 +42,7 @@ const styles = {
   incomeValue: { fontSize: 14, fontWeight: 700, color: "#1a202c" },
 };
 
-export default function PopulationPanel({ data }) {
+export default function PopulationPanel({ data, hideTitle = false }) {
   if (!data || data.total === 0) return null;
 
   const under18 = (data.under_5 ?? 0) + (data.age_5_9 ?? 0) + (data.age_10_14 ?? 0) + (data.age_15_17 ?? 0);
@@ -50,10 +50,17 @@ export default function PopulationPanel({ data }) {
 
   return (
     <div style={styles.panel}>
-      <div style={styles.titleRow}>
-        <span style={styles.title}>Catchment population</span>
-        <span style={styles.sub}>{data.tract_count} census tract{data.tract_count !== 1 ? "s" : ""}</span>
-      </div>
+      {!hideTitle && (
+        <div style={styles.titleRow}>
+          <span style={styles.title}>Catchment population</span>
+          <span style={styles.sub}>{data.tract_count} census tract{data.tract_count !== 1 ? "s" : ""}</span>
+        </div>
+      )}
+      {hideTitle && (
+        <div style={{ ...styles.titleRow, marginBottom: 4 }}>
+          <span style={styles.sub}>{data.tract_count} census tract{data.tract_count !== 1 ? "s" : ""}</span>
+        </div>
+      )}
       <div style={{ ...styles.total, marginBottom: 2 }}>{under18.toLocaleString()}</div>
       <div style={{ fontSize: 11, color: "#718096", marginBottom: 8 }}>
         Total catchment: <strong style={{ color: "#1a202c" }}>{data.total.toLocaleString()}</strong>

@@ -35,7 +35,7 @@ const s = {
   checkLabel: { fontSize: 12, color: "#4a5568" },
 };
 
-function CollapsibleSection({ title, defaultOpen = false, children }) {
+function CollapsibleSection({ title, defaultOpen = false, noPadding = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ flexShrink: 0 }}>
@@ -43,7 +43,7 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
         <span>{title}</span>
         <span style={{ fontSize: 10, color: "#a0aec0" }}>{open ? "▲" : "▼"}</span>
       </div>
-      {open && <div style={s.sectionBody}>{children}</div>}
+      {open && (noPadding ? <>{children}</> : <div style={s.sectionBody}>{children}</div>)}
     </div>
   );
 }
@@ -107,8 +107,8 @@ export default function Sidebar({
 
         {/* Population results — shown only when active */}
         {populationData && (
-          <>
-            <PopulationPanel data={populationData} />
+          <CollapsibleSection title="Catchment Population" defaultOpen={true} noPadding>
+            <PopulationPanel data={populationData} hideTitle />
             <div style={{ padding: "8px 14px", borderBottom: "1px solid #e2e8f0", background: "#f7fafc", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <button
                 onClick={onToggleTracts}
@@ -149,7 +149,7 @@ export default function Sidebar({
                 {showTractDetail ? "← Close detail" : "Tract detail"}
               </button>
             </div>
-          </>
+          </CollapsibleSection>
         )}
       </div>
 
