@@ -125,6 +125,11 @@ export const api = {
     return res.json();
   },
 
+  // Candidate locations
+  listCandidates: () => request("GET", "/candidates"),
+  createCandidate: (data) => request("POST", "/candidates", data),
+  deleteCandidate: (id) => request("DELETE", `/candidates/${id}`),
+
   getTccnCompare: () => request("GET", "/tccn/compare"),
   triggerTccnScrape: () => request("POST", "/tccn/scrape"),
   addTccnExclusion: (practice_name, reason) => request("POST", "/tccn/exclusions", { practice_name, reason }),

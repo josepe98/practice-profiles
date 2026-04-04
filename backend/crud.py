@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
-from models import Practice
-from schemas import PracticeCreate, PracticeUpdate
+from models import Practice, CandidateLocation
+from schemas import PracticeCreate, PracticeUpdate, CandidateLocationCreate
 
 
 def get_practice(db: Session, practice_id: int):
@@ -75,3 +75,34 @@ def bulk_create_practices(db: Session, practices: list[dict]) -> int:
     db.bulk_save_objects(objects)
     db.commit()
     return len(objects)
+
+
+# ── Candidate locations ─────────────────────────────────────────────────────────
+
+def get_candidates(db: Session):
+    return db.query(CandidateLocation).order_by(CandidateLocation.created_at).all()
+
+
+def get_candidate(db: Session, candidate_id: int):
+    return db.query(CandidateLocation).filter(CandidateLocation.id == candidate_id).first()
+
+
+def create_candidate(db: Session, candidate: CandidateLocationCreate) -> CandidateLocation:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    db_cand = CandidateLocation(
+        **candidate.model_dump(),
+        created_at=now,
+    )
+    db.add(db_cand)
+    db.commit()
+    db.refresh(db_cand)
+    return db_cand
+
+
+def delete_candidate(db: Session, candidate_id: int) -> bool:
+    db_cand = get_candidate(db, candidate_id)
+    if not db_cand:
+        return False
+    db.delete(db_cand)
+    db.commit()
+    return True

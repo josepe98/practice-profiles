@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Text, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, Text, Float, Boolean, ForeignKey, DateTime
 from datetime import datetime
 from database import Base
 
@@ -17,6 +17,7 @@ class Practice(Base):
     lng = Column(Float, nullable=True)
     affiliation = Column(Text, nullable=True)
     ownership   = Column(Text, nullable=True)
+    is_de_novo  = Column(Boolean, nullable=False, default=False)
     geocoded = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -93,6 +94,20 @@ class TractDistance(Base):
     practice_id = Column(Integer, ForeignKey("practices.id"), primary_key=True)
     miles         = Column(Float)
     drive_minutes = Column(Float)
+
+
+class CandidateLocation(Base):
+    __tablename__ = "candidate_locations"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    name        = Column(Text, nullable=False)
+    address     = Column(Text, nullable=False)
+    lng         = Column(Float, nullable=True)
+    lat         = Column(Float, nullable=True)
+    practice_id = Column(Integer, ForeignKey("practices.id"), nullable=False)
+    notes       = Column(Text, nullable=True)
+    url         = Column(Text, nullable=True)
+    created_at  = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class UserLogin(Base):

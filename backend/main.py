@@ -20,6 +20,7 @@ MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY", "")
 
 from database import engine, get_db, Base
+from sqlalchemy import text
 import models  # noqa: F401 — ensures models are registered before create_all
 from models import Practice as PracticeModel, UserLogin
 from schemas import (
@@ -34,6 +35,8 @@ from schemas import (
     PopulationResult,
     TractDetail,
     AnalyticsStatus,
+    CandidateLocationCreate,
+    CandidateLocationOut,
 )
 import crud
 import geocoding as geo
@@ -55,6 +58,13 @@ limiter = Limiter(key_func=get_remote_address)
 
 # Create tables on startup (safe for both SQLite and PostgreSQL)
 Base.metadata.create_all(bind=engine)
+
+# Add columns that may not exist yet in the live DB (idempotent ALTER TABLE)
+with engine.connect() as _conn:
+    _conn.execute(text(
+        "ALTER TABLE practices ADD COLUMN IF NOT EXISTS is_de_novo BOOLEAN NOT NULL DEFAULT FALSE"
+    ))
+    _conn.commit()
 
 app = FastAPI(title="Practice Profiles API")
 app.state.limiter = limiter
@@ -303,6 +313,29 @@ def coverage(affiliations: Optional[str] = None, db: Session = Depends(get_db)):
 @app.get("/api/analytics/density")
 def density(db: Session = Depends(get_db)):
     return get_density_geojson(db)
+
+
+# ── Geocode ─────────────────────────────────────────────────────────────────────
+
+# ── Candidate locations ─────────────────────────────────────────────────────────
+
+@app.get("/api/candidates", response_model=List[CandidateLocationOut])
+def list_candidates(db: Session = Depends(get_db)):
+    return crud.get_candidates(db)
+
+
+@app.post("/api/candidates", response_model=CandidateLocationOut, status_code=201)
+def create_candidate(candidate: CandidateLocationCreate, db: Session = Depends(get_db)):
+    practice = crud.get_practice(db, candidate.practice_id)
+    if not practice:
+        raise HTTPException(status_code=404, detail="Practice not found")
+    return crud.create_candidate(db, candidate)
+
+
+@app.delete("/api/candidates/{candidate_id}", status_code=204)
+def delete_candidate(candidate_id: int, db: Session = Depends(get_db)):
+    if not crud.delete_candidate(db, candidate_id):
+        raise HTTPException(status_code=404, detail="Candidate not found")
 
 
 # ── Geocode ─────────────────────────────────────────────────────────────────────

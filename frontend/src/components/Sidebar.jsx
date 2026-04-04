@@ -54,25 +54,32 @@ export default function Sidebar({
   loading, onFilter, onClearFilter, onSearchSelect,
   showHighways, onToggleHighways, showDensity, onToggleDensity,
   candidatePOIs, showCandidates, onToggleCandidates,
-  addingCandidateMode, onToggleAddingCandidateMode, onClearCandidates,
-  onAddCandidateByAddress,
+  onClearCandidates, onRemoveCandidate,
+  onAddCandidateByAddress, onOpenAddPractice,
   patientOriginDatasets, selectedPatientDatasetId, onSelectPatientDataset,
   showPatientOrigins, onTogglePatientOrigins,
   showTractDetail, onToggleTractDetail,
 }) {
-  const [candName, setCandName]       = useState("");
-  const [candAddress, setCandAddress] = useState("");
-  const [candLoading, setCandLoading] = useState(false);
-  const [candError, setCandError]     = useState(null);
+  const [candName, setCandName]         = useState("");
+  const [candAddress, setCandAddress]   = useState("");
+  const [candPracticeId, setCandPracticeId] = useState("");
+  const [candNotes, setCandNotes]       = useState("");
+  const [candUrl, setCandUrl]           = useState("");
+  const [candLoading, setCandLoading]   = useState(false);
+  const [candError, setCandError]       = useState(null);
 
   const handleAddByAddress = async () => {
     if (!candAddress.trim()) return;
+    if (!candPracticeId) { setCandError("Please select a linked practice"); return; }
     setCandLoading(true);
     setCandError(null);
     try {
-      await onAddCandidateByAddress(candName, candAddress);
+      await onAddCandidateByAddress(candName, candAddress, Number(candPracticeId), candNotes, candUrl);
       setCandName("");
       setCandAddress("");
+      setCandPracticeId("");
+      setCandNotes("");
+      setCandUrl("");
     } catch (err) {
       setCandError(err.message ?? "Address not found");
     } finally {
@@ -206,18 +213,16 @@ export default function Sidebar({
 
       {/* ── Candidate Locations ────────────────────────────────── */}
       <CollapsibleSection title="Candidate Locations">
+        {/* Top controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
           <button
-            onClick={onToggleAddingCandidateMode}
+            onClick={onOpenAddPractice}
             style={{
               padding: "4px 10px", fontSize: 12, fontWeight: 500, borderRadius: 4,
-              border: `1px solid ${addingCandidateMode ? "#c05621" : "#cbd5e0"}`,
-              background: addingCandidateMode ? "#c05621" : "#fff",
-              color: addingCandidateMode ? "#fff" : "#4a5568",
-              cursor: "pointer",
+              border: "1px solid #6b46c1", background: "#fff", color: "#6b46c1", cursor: "pointer",
             }}
           >
-            {addingCandidateMode ? "Click map to place… (cancel)" : "Drop pin on map"}
+            + Add Practice
           </button>
           {(candidatePOIs?.length ?? 0) > 0 && (
             <button
@@ -243,9 +248,28 @@ export default function Sidebar({
           </label>
         )}
 
+        {/* Candidate list */}
+        {(candidatePOIs?.length ?? 0) > 0 && (
+          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 6, marginBottom: 8 }}>
+            {candidatePOIs.map((c) => {
+              const practice = practices.find((p) => p.id === c.practice_id);
+              return (
+                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 5, marginBottom: 5, borderBottom: "1px solid #f7fafc" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#2d3748", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
+                    <div style={{ fontSize: 10, color: "#718096" }}>{practice?.name ?? "—"}</div>
+                  </div>
+                  <button onClick={() => onRemoveCandidate(c.id)} style={{ background: "none", border: "none", color: "#a0aec0", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Add by address form */}
         <div style={{ paddingTop: 8, borderTop: "1px solid #e2e8f0" }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 5 }}>
-            Add by address
+            Add candidate location
           </div>
           <input
             placeholder="Name (optional)"
@@ -253,13 +277,35 @@ export default function Sidebar({
             onChange={(e) => setCandName(e.target.value)}
             style={{ width: "100%", boxSizing: "border-box", padding: "4px 7px", fontSize: 12, borderRadius: 4, border: "1px solid #cbd5e0", marginBottom: 4 }}
           />
+          <input
+            placeholder="Address or place *"
+            value={candAddress}
+            onChange={(e) => { setCandAddress(e.target.value); setCandError(null); }}
+            style={{ width: "100%", boxSizing: "border-box", padding: "4px 7px", fontSize: 12, borderRadius: 4, border: `1px solid ${candError && !candAddress.trim() ? "#e53e3e" : "#cbd5e0"}`, marginBottom: 4 }}
+          />
+          <select
+            value={candPracticeId}
+            onChange={(e) => { setCandPracticeId(e.target.value); setCandError(null); }}
+            style={{ width: "100%", boxSizing: "border-box", padding: "4px 7px", fontSize: 12, borderRadius: 4, border: `1px solid ${candError && !candPracticeId ? "#e53e3e" : "#cbd5e0"}`, marginBottom: 4 }}
+          >
+            <option value="">— Linked practice * —</option>
+            {practices.filter((p) => p.lat != null).map((p) => (
+              <option key={p.id} value={p.id}>{p.is_de_novo ? `[De Novo] ${p.name}` : p.name}</option>
+            ))}
+          </select>
+          <input
+            placeholder="Notes (optional)"
+            value={candNotes}
+            onChange={(e) => setCandNotes(e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", padding: "4px 7px", fontSize: 12, borderRadius: 4, border: "1px solid #cbd5e0", marginBottom: 4 }}
+          />
           <div style={{ display: "flex", gap: 6 }}>
             <input
-              placeholder="Address or place"
-              value={candAddress}
-              onChange={(e) => { setCandAddress(e.target.value); setCandError(null); }}
+              placeholder="URL (optional)"
+              value={candUrl}
+              onChange={(e) => setCandUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddByAddress(); }}
-              style={{ flex: 1, padding: "4px 7px", fontSize: 12, borderRadius: 4, border: `1px solid ${candError ? "#e53e3e" : "#cbd5e0"}` }}
+              style={{ flex: 1, padding: "4px 7px", fontSize: 12, borderRadius: 4, border: "1px solid #cbd5e0" }}
             />
             <button
               onClick={handleAddByAddress}

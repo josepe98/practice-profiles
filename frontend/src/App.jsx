@@ -12,6 +12,7 @@ import TableView from "./components/TableView.jsx";
 import TractDetailsPanel from "./components/TractDetailsPanel.jsx";
 import AnalyticsView from "./components/AnalyticsView.jsx";
 import TccnCompareView from "./components/TccnCompareView.jsx";
+import AddPracticeModal from "./components/AddPracticeModal.jsx";
 
 function TractDetailView({ tracts }) {
   return (
@@ -137,44 +138,57 @@ export default function App() {
   const [showPatientOrigins, setShowPatientOrigins] = useState(true);
   const [showPatientOriginsModal, setShowPatientOriginsModal] = useState(false);
 
-  const [candidatePOIs, setCandidatePOIs] = useState(() => {
-    try { const s = localStorage.getItem("pf_candidates"); return s ? JSON.parse(s) : []; } catch { return []; }
-  });
+  const [candidatePOIs, setCandidatePOIs] = useState([]);
   const [showCandidates, setShowCandidates] = useState(false);
-  const [addingCandidateMode, setAddingCandidateMode] = useState(false);
+  const [showAddPracticeModal, setShowAddPracticeModal] = useState(false);
 
-  // Persist candidate POIs to localStorage
-  useEffect(() => {
-    try { localStorage.setItem("pf_candidates", JSON.stringify(candidatePOIs)); } catch {}
+  const fetchCandidates = useCallback(async () => {
+    try {
+      const data = await api.listCandidates();
+      setCandidatePOIs(data);
+    } catch (err) {
+      console.error("Failed to fetch candidates:", err);
+    }
+  }, []);
+
+  useEffect(() => { if (!session) return; fetchCandidates(); }, [fetchCandidates, session]);
+
+  const handleRemoveCandidate = useCallback(async (id) => {
+    try {
+      await api.deleteCandidate(id);
+      setCandidatePOIs((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error("Failed to delete candidate:", err);
+    }
+  }, []);
+
+  const handleClearCandidates = useCallback(async () => {
+    if (!window.confirm("Remove all candidate locations?")) return;
+    try {
+      await Promise.all(candidatePOIs.map((c) => api.deleteCandidate(c.id)));
+      setCandidatePOIs([]);
+    } catch (err) {
+      console.error("Failed to clear candidates:", err);
+    }
   }, [candidatePOIs]);
 
-  const handleAddCandidate = useCallback((lngLat) => {
-    const { lng, lat } = lngLat;
-    const name = window.prompt("Name this candidate location:", "New location");
-    if (name === null) { setAddingCandidateMode(false); return; }
-    const id = `cand_${Date.now()}`;
-    setCandidatePOIs((prev) => [...prev, { id, name: name.trim() || "New location", lng, lat }]);
-    setAddingCandidateMode(false);
-  }, []);
-
-  const handleRemoveCandidate = useCallback((id) => {
-    setCandidatePOIs((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  const handleClearCandidates = useCallback(() => {
-    if (!window.confirm("Remove all candidate locations?")) return;
-    setCandidatePOIs([]);
-  }, []);
-
-  const handleUpdateCandidatePosition = useCallback((id, lng, lat) => {
-    setCandidatePOIs((prev) => prev.map((c) => c.id === id ? { ...c, lng, lat } : c));
-  }, []);
-
-  const handleAddCandidateByAddress = useCallback(async (name, address) => {
+  const handleAddCandidateByAddress = useCallback(async (name, address, practiceId, notes, url) => {
     const { lng, lat } = await api.geocodeAddress(address);
-    const id = `cand_${Date.now()}`;
-    setCandidatePOIs((prev) => [...prev, { id, name: name.trim() || address, lng, lat }]);
+    const candidate = await api.createCandidate({
+      name: name.trim() || address,
+      address,
+      lng,
+      lat,
+      practice_id: practiceId,
+      notes: notes || null,
+      url: url || null,
+    });
+    setCandidatePOIs((prev) => [...prev, candidate]);
   }, []);
+
+  const handleCreatePractice = useCallback(async () => {
+    await fetchPractices();
+  }, [fetchPractices]);
 
   const fetchPatientOriginDatasets = useCallback(async () => {
     try {
@@ -216,12 +230,13 @@ export default function App() {
     [practices]
   );
 
+  const PILL_EXCLUDED = new Set(["De Novo"]);
   const affiliations = useMemo(() => {
     const seen = new Set();
     const result = [];
     for (const p of visiblePractices) {
       const aff = p.affiliation ?? "";
-      if (aff && !seen.has(aff)) { seen.add(aff); result.push(aff); }
+      if (aff && !seen.has(aff) && !PILL_EXCLUDED.has(aff)) { seen.add(aff); result.push(aff); }
     }
     const ORDER = ["Children's", "TCCN", "Piedmont", "Wellstar", "Wellstar Peds Specialty"];
     return result.sort((a, b) => {
@@ -644,10 +659,7 @@ export default function App() {
               fitAllTrigger={fitAllTrigger}
               candidatePOIs={candidatePOIs}
               showCandidates={showCandidates}
-              addingCandidateMode={addingCandidateMode}
-              onAddCandidate={handleAddCandidate}
               onRemoveCandidate={handleRemoveCandidate}
-              onUpdateCandidatePosition={handleUpdateCandidatePosition}
               patientOriginsGeoJSON={patientOriginsGeoJSON}
               showPatientOrigins={showPatientOrigins}
             />
@@ -672,10 +684,10 @@ export default function App() {
               candidatePOIs={candidatePOIs}
               showCandidates={showCandidates}
               onToggleCandidates={() => setShowCandidates((v) => !v)}
-              addingCandidateMode={addingCandidateMode}
-              onToggleAddingCandidateMode={() => setAddingCandidateMode((v) => !v)}
               onClearCandidates={handleClearCandidates}
+              onRemoveCandidate={handleRemoveCandidate}
               onAddCandidateByAddress={handleAddCandidateByAddress}
+              onOpenAddPractice={() => setShowAddPracticeModal(true)}
               patientOriginDatasets={patientOriginDatasets}
               selectedPatientDatasetId={selectedPatientDatasetId}
               onSelectPatientDataset={(id) => { setSelectedPatientDatasetId(id); setShowPatientOrigins(true); }}
@@ -698,6 +710,12 @@ export default function App() {
           datasets={patientOriginDatasets}
           onClose={() => setShowPatientOriginsModal(false)}
           onRefresh={fetchPatientOriginDatasets}
+        />
+      )}
+      {showAddPracticeModal && (
+        <AddPracticeModal
+          onClose={() => setShowAddPracticeModal(false)}
+          onCreated={handleCreatePractice}
         />
       )}
     </div>

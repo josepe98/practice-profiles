@@ -10,6 +10,7 @@ class PracticeBase(BaseModel):
     phone: Optional[str] = None
     affiliation: Optional[str] = None
     ownership: Optional[str] = None
+    is_de_novo: bool = False
     num_mds: int = 0
     num_apps: int = 0
     num_locations: int = 1
@@ -27,6 +28,7 @@ class PracticeUpdate(BaseModel):
     phone: Optional[str] = None
     affiliation: Optional[str] = None
     ownership: Optional[str] = None
+    is_de_novo: Optional[bool] = None
     num_mds: Optional[int] = None
     num_apps: Optional[int] = None
     num_locations: Optional[int] = None
@@ -37,6 +39,7 @@ class PracticeUpdate(BaseModel):
 class Practice(PracticeBase):
     id: int
     geocoded: int
+    is_de_novo: bool
 
     model_config = {"from_attributes": True}
 
@@ -99,3 +102,19 @@ class AnalyticsStatus(BaseModel):
     last_run: Optional[str] = None
     tract_count: int
     practice_count: int
+
+
+class CandidateLocationCreate(BaseModel):
+    name: str
+    address: str
+    lng: Optional[float] = None
+    lat: Optional[float] = None
+    practice_id: int
+    notes: Optional[str] = None
+    url: Optional[str] = None
+
+
+class CandidateLocationOut(CandidateLocationCreate):
+    id: int
+
+    model_config = {"from_attributes": True}

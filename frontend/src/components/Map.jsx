@@ -13,6 +13,7 @@ const COLORS = {
   zarminali:  "#5D0D3A",
   playground: "#4e8cb7",
   aylo:       "#F26628",
+  de_novo:    "#805ad5",
   default:    "#718096",
 };
 
@@ -118,7 +119,9 @@ function computeLabelFeatures(map, practices, filteredIds, originId) {
 
 function pickColor(id, originId, filteredIds, practiceMap) {
   if (id === originId) return COLORS.origin;
-  const affiliation = (practiceMap?.[id]?.affiliation ?? "").toLowerCase();
+  const p = practiceMap?.[id];
+  if (p?.is_de_novo) return COLORS.de_novo;
+  const affiliation = (p?.affiliation ?? "").toLowerCase();
   const isWellstar   = affiliation === "wellstar";
   const isChoa       = affiliation === "children's";
   const isPiedmont   = affiliation === "piedmont";
@@ -143,7 +146,7 @@ function pickColor(id, originId, filteredIds, practiceMap) {
   return COLORS.default;
 }
 
-export default function Map({ practices, originId, filteredIds, hiddenAffiliations, showHighways, onSelectOrigin, onMapClick, customOrigin, densityGeoJSON, showDensity, isochroneGeoJSON, routesGeoJSON, tractGeoJSON, flyToId, fitAllTrigger, candidatePOIs, showCandidates, addingCandidateMode, onAddCandidate, onRemoveCandidate, onUpdateCandidatePosition, patientOriginsGeoJSON, showPatientOrigins }) {
+export default function Map({ practices, originId, filteredIds, hiddenAffiliations, showHighways, onSelectOrigin, onMapClick, customOrigin, densityGeoJSON, showDensity, isochroneGeoJSON, routesGeoJSON, tractGeoJSON, flyToId, fitAllTrigger, candidatePOIs, showCandidates, onRemoveCandidate, patientOriginsGeoJSON, showPatientOrigins }) {
   const containerRef   = useRef(null);
   const mapRef         = useRef(null);
   const markerMapRef   = useRef({});
@@ -161,11 +164,8 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
   const densityGeoJSONRef         = useRef(densityGeoJSON);
   const patientOriginsGeoJSONRef  = useRef(patientOriginsGeoJSON);
   const customPinMarkerRef        = useRef(null);
-  const addingCandidateModeRef        = useRef(addingCandidateMode);
-  const onAddCandidateRef             = useRef(onAddCandidate);
-  const onRemoveCandidateRef          = useRef(onRemoveCandidate);
-  const showCandidatesRef             = useRef(showCandidates);
-  const onUpdateCandidatePositionRef  = useRef(onUpdateCandidatePosition);
+  const onRemoveCandidateRef = useRef(onRemoveCandidate);
+  const showCandidatesRef    = useRef(showCandidates);
 
   useEffect(() => { filteredIdsRef.current      = filteredIds;      }, [filteredIds]);
   useEffect(() => { practicesRef.current        = practices;        }, [practices]);
@@ -178,11 +178,8 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
   useEffect(() => { onMapClickRef.current          = onMapClick;          }, [onMapClick]);
   useEffect(() => { densityGeoJSONRef.current         = densityGeoJSON;         }, [densityGeoJSON]);
   useEffect(() => { patientOriginsGeoJSONRef.current  = patientOriginsGeoJSON;  }, [patientOriginsGeoJSON]);
-  useEffect(() => { addingCandidateModeRef.current       = addingCandidateMode;       }, [addingCandidateMode]);
-  useEffect(() => { onAddCandidateRef.current            = onAddCandidate;            }, [onAddCandidate]);
-  useEffect(() => { onRemoveCandidateRef.current         = onRemoveCandidate;         }, [onRemoveCandidate]);
-  useEffect(() => { showCandidatesRef.current            = showCandidates;            }, [showCandidates]);
-  useEffect(() => { onUpdateCandidatePositionRef.current = onUpdateCandidatePosition; }, [onUpdateCandidatePosition]);
+  useEffect(() => { onRemoveCandidateRef.current = onRemoveCandidate; }, [onRemoveCandidate]);
+  useEffect(() => { showCandidatesRef.current    = showCandidates;   }, [showCandidates]);
 
   // Stable function — reads from refs, safe to use as map event listener
   const refreshLabels = useCallback(() => {
@@ -355,13 +352,9 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
       });
       map.on("zoomend", refreshLabels);
 
-      // Click on empty map space: add candidate or drop custom origin pin
+      // Click on empty map space: set custom origin pin
       map.on("click", (e) => {
-        if (addingCandidateModeRef.current) {
-          onAddCandidateRef.current?.(e.lngLat);
-        } else {
-          onMapClickRef.current?.(e.lngLat);
-        }
+        onMapClickRef.current?.(e.lngLat);
       });
 
       // Re-add sources/layers and re-apply data after WebGL context loss + restoration.
@@ -538,11 +531,12 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         const markerSize = isAyloMarker ? 18 : 14;
         el.style.cssText = `width:${markerSize}px;height:${markerSize}px;cursor:pointer;${hiddenAffiliationsRef.current.has(aff) ? "display:none;" : ""}`;
 
+        const isDeNovo = p.is_de_novo === true;
         const dot = document.createElement("div");
         dot.style.cssText = `
           width:${markerSize}px; height:${markerSize}px;
           background:${pickColor(p.id, originIdRef.current, filteredIdsRef.current, practiceMap)};
-          border-radius:50%;
+          border-radius:${isDeNovo ? "3px" : "50%"};
           border:2px solid #fff;
           box-shadow:0 1px 4px rgba(0,0,0,0.3);
           transition:transform 0.15s;
@@ -771,10 +765,8 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
       for (const c of (candidatePOIs ?? [])) {
         if (existing[c.id]) continue;
 
-        // Clean element — no positioning context, so Mapbox's own transform
-        // on this element is not affected by child overflow or stacking contexts.
         const el = document.createElement("div");
-        el.style.cssText = "width:20px;height:20px;cursor:grab;display:flex;align-items:center;justify-content:center;";
+        el.style.cssText = "width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;";
 
         const diamond = document.createElement("div");
         diamond.style.cssText = `
@@ -788,20 +780,50 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         `;
         el.appendChild(diamond);
 
+        const practice = practicesRef.current.find((p) => p.id === c.practice_id);
+
         const popupEl = document.createElement("div");
-        popupEl.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:120px;";
+        popupEl.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:140px;max-width:220px;";
 
         const nameEl = document.createElement("strong");
         nameEl.textContent = c.name;
-        nameEl.style.cssText = "font-size:13px;";
+        nameEl.style.cssText = "font-size:13px;color:#1a202c;";
+        popupEl.appendChild(nameEl);
 
+        const addrEl = document.createElement("div");
+        addrEl.textContent = c.address;
+        addrEl.style.cssText = "font-size:11px;color:#718096;";
+        popupEl.appendChild(addrEl);
+
+        if (practice) {
+          const practiceEl = document.createElement("div");
+          practiceEl.textContent = `⬡ ${practice.name}`;
+          practiceEl.style.cssText = "font-size:11px;color:#4a5568;font-weight:500;margin-top:2px;";
+          popupEl.appendChild(practiceEl);
+        }
+
+        if (c.notes) {
+          const notesEl = document.createElement("div");
+          notesEl.textContent = c.notes;
+          notesEl.style.cssText = "font-size:11px;color:#4a5568;border-top:1px solid #e2e8f0;padding-top:4px;margin-top:2px;";
+          popupEl.appendChild(notesEl);
+        }
+
+        if (c.url) {
+          const linkEl = document.createElement("a");
+          linkEl.textContent = "View listing ↗";
+          linkEl.href = c.url;
+          linkEl.target = "_blank";
+          linkEl.rel = "noopener noreferrer";
+          linkEl.style.cssText = "font-size:11px;color:#3182ce;text-decoration:none;";
+          popupEl.appendChild(linkEl);
+        }
+
+        const capturedId = c.id;
         const removeBtn = document.createElement("button");
         removeBtn.textContent = "Remove";
-        removeBtn.style.cssText = "padding:3px 8px;font-size:11px;cursor:pointer;background:#e53e3e;color:#fff;border:none;border-radius:3px;margin-top:2px;";
-        const capturedId = c.id;
+        removeBtn.style.cssText = "padding:3px 8px;font-size:11px;cursor:pointer;background:#e53e3e;color:#fff;border:none;border-radius:3px;margin-top:4px;align-self:flex-start;";
         removeBtn.onclick = () => onRemoveCandidateRef.current?.(capturedId);
-
-        popupEl.appendChild(nameEl);
         popupEl.appendChild(removeBtn);
 
         el.addEventListener("click", (e) => {
@@ -809,13 +831,11 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
           if (!marker.getPopup()?.isOpen()) marker.togglePopup();
         });
 
-        const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([c.lng, c.lat])
           .setPopup(new mapboxgl.Popup({ offset: 15, closeButton: true, className: "practice-popup" }).setDOMContent(popupEl))
           .addTo(map);
 
-        // Hover label lives in the Mapbox-managed wrapper (position:absolute),
-        // NOT inside el, so it never affects el's layout or Mapbox's size calculations.
         const wrapper = el.parentElement;
         if (wrapper) {
           wrapper.style.overflow = "visible";
@@ -832,11 +852,6 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
           el.addEventListener("mouseenter", () => { hoverLabel.style.display = "block"; });
           el.addEventListener("mouseleave", () => { hoverLabel.style.display = "none"; });
         }
-
-        marker.on("dragend", () => {
-          const { lng, lat } = marker.getLngLat();
-          onUpdateCandidatePositionRef.current?.(capturedId, lng, lat);
-        });
 
         existing[c.id] = { marker, el };
       }
@@ -857,13 +872,6 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
       el.style.display = display;
     }
   }, [showCandidates]);
-
-  // Crosshair cursor when in candidate-adding mode
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    map.getCanvas().style.cursor = addingCandidateMode ? "crosshair" : "";
-  }, [addingCandidateMode]);
 
   const zoom = (delta) => {
     const map = mapRef.current;
