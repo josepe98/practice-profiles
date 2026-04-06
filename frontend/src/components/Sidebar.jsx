@@ -54,6 +54,7 @@ export default function Sidebar({
   loading, onFilter, onClearFilter, onSearchSelect,
   showHighways, onToggleHighways, showDensity, onToggleDensity,
   candidatePOIs, showCandidates, onToggleCandidates,
+  showCandidateLabels, onToggleCandidateLabels,
   onClearCandidates, onRemoveCandidate,
   onAddCandidateByAddress, onOpenAddPractice,
   patientOriginDatasets, selectedPatientDatasetId, onSelectPatientDataset,
@@ -239,13 +240,24 @@ export default function Sidebar({
         </div>
 
         {(candidatePOIs?.length ?? 0) > 0 && (
-          <label style={{ ...s.checkRow, marginBottom: 8 }}>
-            <input
-              type="checkbox" checked={showCandidates ?? false} onChange={onToggleCandidates}
-              style={{ accentColor: "#d69e2e", width: 13, height: 13, cursor: "pointer" }}
-            />
-            <span style={s.checkLabel}>Show pins ({candidatePOIs.length})</span>
-          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <label style={{ ...s.checkRow, marginBottom: 0 }}>
+              <input
+                type="checkbox" checked={showCandidates ?? false} onChange={onToggleCandidates}
+                style={{ accentColor: "#d69e2e", width: 13, height: 13, cursor: "pointer" }}
+              />
+              <span style={s.checkLabel}>Show pins ({candidatePOIs.length})</span>
+            </label>
+            {showCandidates && (
+              <label style={{ ...s.checkRow, marginBottom: 0 }}>
+                <input
+                  type="checkbox" checked={showCandidateLabels ?? false} onChange={onToggleCandidateLabels}
+                  style={{ accentColor: "#d69e2e", width: 13, height: 13, cursor: "pointer" }}
+                />
+                <span style={s.checkLabel}>Labels</span>
+              </label>
+            )}
+          </div>
         )}
 
         {/* Candidate list */}

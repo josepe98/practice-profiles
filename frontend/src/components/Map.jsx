@@ -146,7 +146,7 @@ function pickColor(id, originId, filteredIds, practiceMap) {
   return COLORS.default;
 }
 
-export default function Map({ practices, originId, filteredIds, hiddenAffiliations, showHighways, onSelectOrigin, onMapClick, customOrigin, densityGeoJSON, showDensity, isochroneGeoJSON, routesGeoJSON, tractGeoJSON, flyToId, fitAllTrigger, candidatePOIs, showCandidates, onRemoveCandidate, patientOriginsGeoJSON, showPatientOrigins }) {
+export default function Map({ practices, originId, filteredIds, hiddenAffiliations, showHighways, onSelectOrigin, onMapClick, customOrigin, densityGeoJSON, showDensity, isochroneGeoJSON, routesGeoJSON, tractGeoJSON, flyToId, fitAllTrigger, candidatePOIs, showCandidates, showCandidateLabels, onRemoveCandidate, patientOriginsGeoJSON, showPatientOrigins }) {
   const containerRef   = useRef(null);
   const mapRef         = useRef(null);
   const markerMapRef   = useRef({});
@@ -164,8 +164,9 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
   const densityGeoJSONRef         = useRef(densityGeoJSON);
   const patientOriginsGeoJSONRef  = useRef(patientOriginsGeoJSON);
   const customPinMarkerRef        = useRef(null);
-  const onRemoveCandidateRef = useRef(onRemoveCandidate);
-  const showCandidatesRef    = useRef(showCandidates);
+  const onRemoveCandidateRef      = useRef(onRemoveCandidate);
+  const showCandidatesRef         = useRef(showCandidates);
+  const showCandidateLabelsRef    = useRef(showCandidateLabels);
 
   useEffect(() => { filteredIdsRef.current      = filteredIds;      }, [filteredIds]);
   useEffect(() => { practicesRef.current        = practices;        }, [practices]);
@@ -178,8 +179,9 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
   useEffect(() => { onMapClickRef.current          = onMapClick;          }, [onMapClick]);
   useEffect(() => { densityGeoJSONRef.current         = densityGeoJSON;         }, [densityGeoJSON]);
   useEffect(() => { patientOriginsGeoJSONRef.current  = patientOriginsGeoJSON;  }, [patientOriginsGeoJSON]);
-  useEffect(() => { onRemoveCandidateRef.current = onRemoveCandidate; }, [onRemoveCandidate]);
-  useEffect(() => { showCandidatesRef.current    = showCandidates;   }, [showCandidates]);
+  useEffect(() => { onRemoveCandidateRef.current   = onRemoveCandidate;   }, [onRemoveCandidate]);
+  useEffect(() => { showCandidatesRef.current      = showCandidates;      }, [showCandidates]);
+  useEffect(() => { showCandidateLabelsRef.current = showCandidateLabels; }, [showCandidateLabels]);
 
   // Stable function — reads from refs, safe to use as map event listener
   const refreshLabels = useCallback(() => {
@@ -847,9 +849,11 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         `;
         el.appendChild(hoverLabel);
         el.addEventListener("mouseenter", () => { hoverLabel.style.display = "block"; });
-        el.addEventListener("mouseleave", () => { hoverLabel.style.display = "none"; });
+        el.addEventListener("mouseleave", () => {
+          if (!showCandidateLabelsRef.current) hoverLabel.style.display = "none";
+        });
 
-        existing[c.id] = { marker, el };
+        existing[c.id] = { marker, el, hoverLabel };
       }
 
       const display = showCandidatesRef.current ? "" : "none";
@@ -868,6 +872,13 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
       el.style.display = display;
     }
   }, [showCandidates]);
+
+  // Toggle always-on labels
+  useEffect(() => {
+    for (const { hoverLabel } of Object.values(candidateMarkerMapRef.current)) {
+      if (hoverLabel) hoverLabel.style.display = showCandidateLabels ? "block" : "none";
+    }
+  }, [showCandidateLabels]);
 
   const zoom = (delta) => {
     const map = mapRef.current;

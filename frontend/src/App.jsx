@@ -140,6 +140,7 @@ export default function App() {
 
   const [candidatePOIs, setCandidatePOIs] = useState([]);
   const [showCandidates, setShowCandidates] = useState(false);
+  const [showCandidateLabels, setShowCandidateLabels] = useState(false);
   const [showAddPracticeModal, setShowAddPracticeModal] = useState(false);
 
   const fetchCandidates = useCallback(async () => {
@@ -659,6 +660,7 @@ export default function App() {
               fitAllTrigger={fitAllTrigger}
               candidatePOIs={candidatePOIs}
               showCandidates={showCandidates}
+              showCandidateLabels={showCandidateLabels}
               onRemoveCandidate={handleRemoveCandidate}
               patientOriginsGeoJSON={patientOriginsGeoJSON}
               showPatientOrigins={showPatientOrigins}
@@ -684,6 +686,8 @@ export default function App() {
               candidatePOIs={candidatePOIs}
               showCandidates={showCandidates}
               onToggleCandidates={() => setShowCandidates((v) => !v)}
+              showCandidateLabels={showCandidateLabels}
+              onToggleCandidateLabels={() => setShowCandidateLabels((v) => !v)}
               onClearCandidates={handleClearCandidates}
               onRemoveCandidate={handleRemoveCandidate}
               onAddCandidateByAddress={handleAddCandidateByAddress}
