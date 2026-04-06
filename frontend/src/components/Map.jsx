@@ -766,7 +766,7 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         if (existing[c.id]) continue;
 
         const el = document.createElement("div");
-        el.style.cssText = "width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;";
+        el.style.cssText = "width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;overflow:visible;";
 
         const diamond = document.createElement("div");
         diamond.style.cssText = `
@@ -836,22 +836,18 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
           .setPopup(new mapboxgl.Popup({ offset: 15, closeButton: true, className: "practice-popup" }).setDOMContent(popupEl))
           .addTo(map);
 
-        const wrapper = el.parentElement;
-        if (wrapper) {
-          wrapper.style.overflow = "visible";
-          const hoverLabel = document.createElement("div");
-          hoverLabel.textContent = c.name;
-          hoverLabel.style.cssText = `
-            position:absolute;left:22px;top:50%;transform:translateY(-50%);
-            background:rgba(255,255,255,0.93);color:#2d3748;
-            font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;
-            white-space:nowrap;pointer-events:none;
-            box-shadow:0 1px 4px rgba(0,0,0,0.15);display:none;z-index:10;
-          `;
-          wrapper.appendChild(hoverLabel);
-          el.addEventListener("mouseenter", () => { hoverLabel.style.display = "block"; });
-          el.addEventListener("mouseleave", () => { hoverLabel.style.display = "none"; });
-        }
+        const hoverLabel = document.createElement("div");
+        hoverLabel.textContent = c.name;
+        hoverLabel.style.cssText = `
+          position:absolute;left:22px;top:50%;transform:translateY(-50%);
+          background:rgba(255,255,255,0.93);color:#2d3748;
+          font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;
+          white-space:nowrap;pointer-events:none;
+          box-shadow:0 1px 4px rgba(0,0,0,0.15);display:none;z-index:10;
+        `;
+        el.appendChild(hoverLabel);
+        el.addEventListener("mouseenter", () => { hoverLabel.style.display = "block"; });
+        el.addEventListener("mouseleave", () => { hoverLabel.style.display = "none"; });
 
         existing[c.id] = { marker, el };
       }
