@@ -93,9 +93,24 @@ Approximately 1,200 census tracts.
 | lat / lng | REAL | Geocoded by Mapbox |
 | geocoded | INTEGER | 0/1 flag |
 | affiliation | TEXT | Children's, TCCN, Wellstar, Piedmont, Wellstar Peds Specialty |
+| ownership | TEXT | Who owns/operates the practice (separate from clinical affiliation) |
+| is_de_novo | BOOLEAN | True for candidate/de novo practices not yet opened |
 | created_at / updated_at | TEXT | Timestamps |
 
-### `tract_demographics` table *(planned — analytics precompute)*
+### `candidate_locations` table
+
+| Column | Type | Notes |
+|---|---|---|
+| id | INTEGER PK | Auto |
+| name | TEXT | Location name / label |
+| address | TEXT | Street address |
+| lng / lat | REAL | Geocoded coordinates (nullable) |
+| practice_id | INTEGER FK | Associated practice (→ practices.id) |
+| notes | TEXT | Optional freeform notes |
+| url | TEXT | Optional reference URL |
+| created_at | DATETIME | UTC timestamp |
+
+### `tract_demographics` table *(analytics precompute)*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -108,7 +123,7 @@ Approximately 1,200 census tracts.
 | under_5 | INTEGER | Under-5 population |
 | income_median | INTEGER | Median household income |
 
-### `tract_distances` table *(planned — analytics precompute)*
+### `tract_distances` table *(analytics precompute)*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -138,16 +153,24 @@ Approximately 1,200 census tracts.
 | POST | `/api/isochrone` | Origin + filter → isochrone polygon (GeoJSON) |
 | POST | `/api/population` | Isochrone → weighted population by census tract |
 | POST | `/api/population/tracts` | Isochrone → per-tract population + income breakdown |
-
-### Planned (Analytics)
-
-| Method | Path | Purpose |
-|---|---|---|
+| POST | `/api/tracts` | Isochrone → census tract boundary GeoJSON for visual overlay |
+| GET | `/api/candidates` | List all candidate locations |
+| POST | `/api/candidates` | Create candidate location |
+| DELETE | `/api/candidates/{id}` | Delete candidate location |
+| GET | `/api/patient-origins/datasets` | List patient origin datasets |
+| POST | `/api/patient-origins/upload` | Upload patient origin CSV (practice_id, name, file) |
+| GET | `/api/patient-origins/{id}/geojson` | GeoJSON for a patient origin dataset |
+| DELETE | `/api/patient-origins/{id}` | Delete a patient origin dataset |
+| GET | `/api/tccn/compare` | Compare TCCN directory vs DB practices |
+| POST | `/api/tccn/scrape` | Re-scrape TCCN provider directory |
+| POST | `/api/tccn/exclusions` | Add a TCCN comparison exclusion |
+| DELETE | `/api/tccn/exclusions/{name}` | Remove a TCCN comparison exclusion |
 | POST | `/api/analytics/precompute` | Batch job: fetch MSA tracts → ACS demographics → Mapbox distances → store |
 | GET | `/api/analytics/status` | Precompute status, last run timestamp, tract count |
-| GET | `/api/analytics/coverage` | Per-tract: nearest practice distance + affiliation (for heat map) |
-| POST | `/api/analytics/gaps` | Gap finder: filter by thresholds, return ranked underserved tracts |
-| GET | `/api/analytics/whitespace` | Per-tract affiliation coverage breakdown |
+| POST | `/api/analytics/precompute-demographics` | Refresh Census demographics only (no drive-time compute) |
+| GET | `/api/analytics/demographics-status` | Demographics precompute status |
+| GET | `/api/analytics/coverage` | Per-tract: nearest practice drive time + affiliation (heat map) |
+| GET | `/api/analytics/density` | Practice density by tract |
 
 ---
 
@@ -196,7 +219,15 @@ Approximately 1,200 census tracts.
 - Columns (55px fixed width where noted): Tract GEOID, Pop by Age Census Table (B01001 link), HH Income Census Table (B19013 link), Overlap % (55px), Total (55px), <5 (55px), 5–9 (55px), 10–14 (55px), 15–17 (55px), Median Income
 - Column headers wrap text, 48px row height, vertically bottom-aligned, left-justified
 
-### Analytics View *(planned)*
+### Candidate Locations (sidebar panel)
+
+- Toggle "Show pins" to display candidate location markers on the map (purple rounded-square markers)
+- "Labels" checkbox (next to "Show pins"): forces all candidate labels always-visible for screenshots
+- Add candidate form: name, address, associated practice (required), notes, URL
+- Candidate list with linked practice name and remove button
+- "Add Practice" button opens a modal to create a new practice (including de novo)
+
+### Analytics View *(Phase 1 implemented)*
 
 A dedicated full-screen view for market gap analysis, separate from the practice-catchment workflow. Accessed via header button.
 
@@ -228,10 +259,10 @@ All analytics depend on a one-time batch job (and re-run when practices change):
 
 1. Fetch all ~1,200 census tract centroids in the 29-county MSA from TIGER API
 2. Fetch ACS demographics per tract (population by age, median income)
-3. For each tract centroid, compute drive time + distance to each practice via Mapbox Matrix (batched; skip pairs with straight-line distance >25 miles)
+3. For each tract centroid, compute drive time + distance to each practice via Mapbox Matrix (batched; skip pairs with straight-line distance >10 miles — 25 mi caused 2-hour runs)
 4. Store results in `tract_demographics` and `tract_distances` tables
 
-Estimated runtime: 5–10 minutes. UI shows: precompute button, last-run timestamp, tract count, practice count at time of last run.
+Demographics refresh (free, Census only) and full drive-time precompute are separate operations. UI shows: precompute buttons, last-run timestamp, tract count, practice count at time of last run.
 
 #### Analysis 1: Coverage heat map *(Phase 1)*
 
@@ -293,6 +324,7 @@ Grid search over Metro Atlanta: for each candidate lat/lng, compute how much cur
 | Zarminali | `#5D0D3A` | Deep plum (from zarminali.com) |
 | Playground | `#4e8cb7` | Darker blue (from playgroundpediatrics.com) |
 | Aylo Health | `#F26628` | Aylo orange; marker has serif "a" label to distinguish from Piedmont |
+| De Novo | `#805ad5` | Purple; rounded-square marker shape (not circle) |
 | Other | `#718096` | Gray |
 | Origin (selected) | `#e53e3e` | Red |
 | In-range (filtered) | `#2563eb` | Blue |
@@ -447,5 +479,8 @@ practice-profiles/
             ├── TractDetailsPanel.jsx
             ├── AnalyticsView.jsx
             ├── AnalyticsControls.jsx
-            └── AnalyticsResults.jsx
+            ├── AnalyticsResults.jsx
+            ├── AddPracticeModal.jsx
+            ├── PatientOriginsModal.jsx
+            └── TccnCompareView.jsx
 ```
