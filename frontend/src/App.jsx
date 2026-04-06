@@ -186,10 +186,6 @@ export default function App() {
     setCandidatePOIs((prev) => [...prev, candidate]);
   }, []);
 
-  const handleCreatePractice = useCallback(async () => {
-    await fetchPractices();
-  }, [fetchPractices]);
-
   const fetchPatientOriginDatasets = useCallback(async () => {
     try {
       const data = await api.listPatientOriginDatasets();
@@ -222,6 +218,10 @@ export default function App() {
     if (!session) return;
     fetchPractices();
   }, [fetchPractices, session]);
+
+  const handleCreatePractice = useCallback(async () => {
+    await fetchPractices();
+  }, [fetchPractices]);
 
   // Practices visible on the map/sidebar — excludes permanently hidden affiliations
   const HIDDEN = new Set(["Wellstar Peds Specialty"]);
