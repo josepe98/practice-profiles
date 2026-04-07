@@ -76,6 +76,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
+  const loginEventFired = useRef(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
@@ -92,7 +93,8 @@ export default function App() {
         setIsResettingPassword(false);
       }
       setSession(s);
-      if (s?.access_token && event === "SIGNED_IN") {
+      if (s?.access_token && event === "SIGNED_IN" && !loginEventFired.current) {
+        loginEventFired.current = true;
         const apiBase = import.meta.env.VITE_API_BASE_URL || "";
         fetch(`${apiBase}/api/auth/login-event`, {
           method: "POST",
