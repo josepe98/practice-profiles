@@ -13,6 +13,7 @@ import TractDetailsPanel from "./components/TractDetailsPanel.jsx";
 import AnalyticsView from "./components/AnalyticsView.jsx";
 import TccnCompareView from "./components/TccnCompareView.jsx";
 import AddPracticeModal from "./components/AddPracticeModal.jsx";
+import RvuLookup from "./components/RvuLookup.jsx";
 
 function TractDetailView({ tracts }) {
   return (
@@ -544,6 +545,7 @@ export default function App() {
   }
   if (!session) return <LoginPage />;
   if (isResettingPassword) return <ResetPasswordForm />;
+  if (window.location.pathname === "/rvu-lookup") return <RvuLookup />;
 
   return (
     <div style={styles.app}>

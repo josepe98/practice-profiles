@@ -130,6 +130,9 @@ export const api = {
   createCandidate: (data) => request("POST", "/candidates", data),
   deleteCandidate: (id) => request("DELETE", `/candidates/${id}`),
 
+  getRvu: (codes, year = 2025) =>
+    request("GET", `/rvu?codes=${encodeURIComponent(codes)}&year=${year}`),
+
   getTccnCompare: () => request("GET", "/tccn/compare"),
   triggerTccnScrape: () => request("POST", "/tccn/scrape"),
   addTccnExclusion: (practice_name, reason) => request("POST", "/tccn/exclusions", { practice_name, reason }),

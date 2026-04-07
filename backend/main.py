@@ -46,6 +46,7 @@ from tracts import get_population_for_isochrone, get_tract_geojson_for_isochrone
 from analytics import run_precompute, run_demographics_only, get_coverage_geojson, get_density_geojson, _status as analytics_status, _demo_status as demo_status
 from patient_origins import router as patient_origins_router
 from tccn import router as tccn_router
+from rvu import router as rvu_router
 from auth import require_auth
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -72,6 +73,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(patient_origins_router)
 app.include_router(tccn_router)
+app.include_router(rvu_router)
 
 # ── Middleware (last added = outermost = runs first) ────────────────────────────
 
