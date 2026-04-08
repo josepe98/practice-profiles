@@ -171,6 +171,7 @@ Approximately 1,200 census tracts.
 | GET | `/api/analytics/demographics-status` | Demographics precompute status |
 | GET | `/api/analytics/coverage` | Per-tract: nearest practice drive time + affiliation (heat map) |
 | GET | `/api/analytics/density` | Practice density by tract |
+| GET | `/api/rvu` | Look up CPT code RVU data from CMS Physician Fee Schedule (`codes`, `year` query params) |
 
 ---
 
@@ -226,6 +227,19 @@ Approximately 1,200 census tracts.
 - Add candidate form: name, address, associated practice (required), notes, URL
 - Candidate list with linked practice name and remove button
 - "Add Practice" button opens a modal to create a new practice (including de novo)
+
+### RVU Lookup *(hidden page at `/rvu-lookup`)*
+
+A standalone utility page for looking up CPT code RVU values from the CMS Physician Fee Schedule. Not linked from the main app navigation — accessed directly by URL.
+
+- Paste CPT codes (one per line or comma-separated), select a year (2024 or 2025), and click "Look Up"
+- Data fetched from the CMS public datastore API (`pfs.data.cms.gov`) via the backend `/api/rvu` endpoint
+- Results table: CPT code, description, wRVU, Non-Fac PE RVU, Fac PE RVU, status, global days
+- Inactive codes (proc_stat ≠ "A") highlighted in amber; codes not found highlighted in red
+- Export CSV button available after results load
+- Backend caches results in memory (data changes once per year)
+
+---
 
 ### Analytics View *(Phase 1 implemented)*
 
@@ -454,6 +468,12 @@ practice-profiles/
 │   ├── importer.py
 │   ├── tracts.py
 │   ├── analytics.py
+│   ├── patient_origins.py
+│   ├── population.py
+│   ├── tccn.py
+│   ├── rvu.py
+│   ├── scrape_tccn.py
+│   ├── scrape_aylo.py
 │   └── requirements.txt
 └── frontend/
     ├── index.html
@@ -482,5 +502,6 @@ practice-profiles/
             ├── AnalyticsResults.jsx
             ├── AddPracticeModal.jsx
             ├── PatientOriginsModal.jsx
-            └── TccnCompareView.jsx
+            ├── TccnCompareView.jsx
+            └── RvuLookup.jsx
 ```
