@@ -53,7 +53,7 @@ How practice data for each affiliation was originally obtained:
 - **Isochrones**: Mapbox Isochrone API
 - **Population data**: US Census ACS 5-year estimates (B01001 age by sex, B19013 median HH income, B19001 HH income brackets)
 - **Tract boundaries**: Census TIGER/Web API (ACS 2022, MapServer layer 8)
-- **Database**: Supabase PostgreSQL (transaction pooler, port 6543)
+- **Database**: Supabase PostgreSQL (transaction pooler, port 6543); RLS enabled on all public tables with no policies (deny-all via PostgREST; backend connects as `postgres` role which bypasses RLS)
 
 ### Deployment
 - **Backend**: Railway → `https://practice-profiles-production.up.railway.app`
