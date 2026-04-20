@@ -35,12 +35,14 @@ How practice data for each affiliation was originally obtained:
 | Children's | "Strategy Google Map" | Manual entry from a lightly-maintained internal Google Map | Believed to be complete and correct but source is not systematically updated. |
 | Playground Pediatrics | `playgroundpediatrics.com/our-practices` | Automated scraper (`test-folder/georgia_checker.py`) | Georgia locations only; monitored weekly for changes. |
 | Zarminali | `zarminali.com/locations` | Automated scraper (`test-folder/georgia_checker.py`) | Georgia locations only; monitored weekly for changes. |
+| Aylo Health | `aylohealth.com/locations/` | Automated scraper (`backend/scrape_aylo.py`) | Filters to Pediatrics, Primary Care, Family Medicine; single-page fetch. |
 
 ### Refreshing data
 
 - **TCCN**: Use the "Re-scrape directory" button in the TCCN Compare tab.
 - **Wellstar / Piedmont**: No automated refresh path exists. Wellstar would need a scraper built; Piedmont likely requires the batch detail-page approach documented in `.firecrawl/scratchpad/` (firecrawl map → batch individual practice pages).
 - **Children's**: Check the "Strategy Google Map" for updates and manually enter any changes via the app.
+- **Aylo Health**: Re-run `backend/scrape_aylo.py` and import the generated CSV.
 
 ---
 
@@ -249,21 +251,21 @@ A dedicated full-screen view for market gap analysis, separate from the practice
 
 ```
 ┌──────────────┬──────────────────────────────────┬───────────────┐
-│ Controls     │   Map (tract heat map)            │ Results       │
+│ Controls     │   Map (tract heat map)            │ Legend        │
 │              │                                  │               │
-│ Analysis:    │   - Tracts colored by metric     │ Ranked list   │
-│ ○ Coverage   │   - Gap clusters highlighted     │ of gaps /     │
-│ ○ Gap Finder │   - Color scale legend           │ tracts        │
-│ ○ Whitespace │                                  │               │
-│ ○ Prov. Ratio│                                  │ Click → drill │
-│              │                                  │   down        │
-│ Thresholds   │                                  │               │
-│ Affil. filter│                                  │               │
+│ Demographics │   - Tracts colored by drive time │ ≤ 10 min  ■   │
+│ [Fetch]      │     to nearest practice          │ 10–15 min ■   │
+│              │   - Highway highlight (optional) │ 15–20 min ■   │
+│ Drive-time   │                                  │ 20–30 min ■   │
+│ [disabled]   │                                  │ ≥ 30 min  ■   │
+│              │                                  │ No data   ■   │
+│ Coverage by  │                                  │               │
+│ affiliation  │                                  │               │
+│ [checkboxes] │                                  │               │
+│ [Update map] │                                  │               │
 │              │                                  │               │
-│ [Run]        │                                  │               │
-│              │                                  │               │
-│ Precompute   │                                  │               │
-│ [status]     │                                  │               │
+│ Map options  │                                  │               │
+│ [highways]   │                                  │               │
 └──────────────┴──────────────────────────────────┴───────────────┘
 ```
 
@@ -278,22 +280,15 @@ All analytics depend on a one-time batch job (and re-run when practices change):
 
 Demographics refresh (free, Census only) and full drive-time precompute are separate operations. UI shows: precompute buttons, last-run timestamp, tract count, practice count at time of last run.
 
+**Note:** Drive-time recompute is currently disabled in the UI (button is greyed out) to avoid accidental Mapbox Matrix API charges while the tool is shared. Existing precomputed distances are still used for the coverage heat map.
+
 #### Analysis 1: Coverage heat map *(Phase 1)*
 
 Color each census tract by drive time to the nearest practice of the selected affiliation(s). Shows geographic access deserts visually. Affiliation filter allows showing coverage by own network only, competitor only, or all.
 
-#### Analysis 2: Gap finder *(Phase 1)*
+#### Analysis 2: Gap finder *(removed)*
 
-User sets thresholds:
-- Minimum pediatric population (under 18) in gap cluster
-- Maximum acceptable drive time or miles to nearest practice
-- Which affiliations count as "coverage"
-
-Output: ranked list of underserved census tracts or contiguous clusters, sorted by pediatric population.
-
-Example: "Which single tract or small cluster has ≥5,000 kids with no Children's/TCCN practice within 5 miles?"
-
-Gap interpretation varies by affiliation filter:
+Gap finder was removed — it added complexity and risk of triggering expensive Mapbox Matrix API calls. The coverage heat map (Analysis 1) surfaced the same information visually. The gap interpretation table below is preserved for reference:
 
 | Nearest practice | Strategic read |
 |---|---|
@@ -443,8 +438,8 @@ All access is gated behind Supabase Auth. There is no public registration — ac
 ## Environment
 
 ```
-practice-profiles/.env          MAPBOX_TOKEN, CENSUS_API_KEY
-practice-profiles/frontend/.env VITE_MAPBOX_TOKEN
+practice-profiles/.env          DATABASE_URL, SUPABASE_JWT_SECRET, SUPABASE_URL, MAPBOX_TOKEN, CENSUS_API_KEY, ALLOWED_ORIGINS
+practice-profiles/frontend/.env VITE_MAPBOX_TOKEN, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_BASE_URL
 ```
 
 ---
