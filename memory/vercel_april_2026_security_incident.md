@@ -22,12 +22,13 @@ Backend secrets (`DATABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_URL`, `MAPBOX_
 **Action items (no emergency rotation required given Vercel's direct notice, but do the hygiene passes):**
 
 1. Review the Vercel activity log (https://vercel.com/activity-log or `vercel activity` CLI) for suspicious deployments, env var reads, or team membership changes over the past ~30 days.
-2. In the Google Workspace admin console, search for the IOC OAuth client ID `110671459871-30f1spbu0hptbs60cb4vsmv79i7bbvqj.apps.googleusercontent.com` and revoke/investigate any grants.
-3. Mark any non-public env var currently in Vercel as **sensitive** (https://vercel.com/docs/environment-variables/sensitive-environment-variables), and do the same for any new ones going forward.
-4. Optional rotation of Vercel-stored values as a precaution:
+2. Mark any non-public env var currently in Vercel as **sensitive** (https://vercel.com/docs/environment-variables/sensitive-environment-variables), and do the same for any new ones going forward.
+3. Optional rotation of Vercel-stored values as a precaution:
     - `VITE_*` values are bundled into the client build and already public by design; rotation has limited security value. `VITE_MAPBOX_TOKEN` should have URL restrictions configured in Mapbox regardless.
     - If any backend secrets were ever copied into Vercel env vars, rotate those in Railway + Supabase + Mapbox + Census as appropriate.
-5. Watch for a follow-up email from Vercel — they said they will contact us again if evidence of compromise emerges.
+4. Watch for a follow-up email from Vercel — they said they will contact us again if evidence of compromise emerges.
+
+**IOC Google Workspace check: N/A for this project — no Google Workspace is associated with it.** The OAuth client ID below is recorded for reference only.
 
 **IOC:** `110671459871-30f1spbu0hptbs60cb4vsmv79i7bbvqj.apps.googleusercontent.com`
 
