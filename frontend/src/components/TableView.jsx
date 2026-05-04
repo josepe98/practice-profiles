@@ -14,7 +14,7 @@ const COLUMNS = [
 ];
 
 const EMPTY_ROW = {
-  name: "", address: "", affiliation: "", ownership: "",
+  name: "", address: "", phone: "", affiliation: "", ownership: "",
   num_mds: "", num_apps: "", num_locations: "", lat: "", lng: "",
 };
 
@@ -133,6 +133,7 @@ export default function TableView({ practices, onRefresh }) {
         address:       newRow.address.trim(),
         phone:         newRow.phone.trim()          || null,
         affiliation:   newRow.affiliation.trim()    || null,
+        ownership:     newRow.ownership.trim()      || null,
         num_mds:       Number(newRow.num_mds)       || 0,
         num_apps:      Number(newRow.num_apps)      || 0,
         num_locations: Number(newRow.num_locations) || 1,
@@ -146,7 +147,7 @@ export default function TableView({ practices, onRefresh }) {
       setAddingRow(false);
       setNewRow(EMPTY_ROW);
       onRefresh();
-    } catch { alert("Failed to create practice."); }
+    } catch (err) { alert(`Failed to create practice: ${err.message ?? "unknown error"}`); }
     finally { setAddSaving(false); }
   };
 
