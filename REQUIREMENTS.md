@@ -48,7 +48,7 @@ How practice data for each affiliation was originally obtained:
 
 ## Tech Stack
 
-- **Backend**: Python 3.11 + FastAPI + SQLAlchemy
+- **Backend**: Python 3.11 (Railway) / 3.9 (local) + FastAPI + SQLAlchemy
 - **Frontend**: React + Vite + Mapbox GL JS
 - **Routing**: Mapbox Matrix API (drive times + distances, batched in groups of 24)
 - **Geocoding**: Mapbox Geocoding API
@@ -58,8 +58,8 @@ How practice data for each affiliation was originally obtained:
 - **Database**: Supabase PostgreSQL (transaction pooler, port 6543); RLS enabled on all public tables with no policies (deny-all via PostgREST; backend connects as `postgres` role which bypasses RLS)
 
 ### Deployment
-- **Backend**: Railway → `https://practice-profiles-production.up.railway.app`
-- **Frontend**: Vercel → `https://practice-profiles.vercel.app`
+- **Backend**: Railway → `https://practice-profiles-production.up.railway.app` — auto-deploys on push to main
+- **Frontend**: Vercel → `https://practice-profiles.vercel.app` — **not auto-deployed from GitHub** (team-membership mismatch); merging to main does not publish a release
 - There is no local running instance. SQLite support has been removed.
 
 ### Development workflow
@@ -451,6 +451,7 @@ practice-profiles/
 ├── REQUIREMENTS.md
 ├── .env
 ├── .gitignore
+├── .vercelignore
 ├── backend/
 │   ├── main.py
 │   ├── auth.py
