@@ -53,3 +53,4 @@ osrm/data/
 railway_usage_report.py
 railway_usage_report.log
 com.erikjosephson.railwayusagereport.plist
+.vercel

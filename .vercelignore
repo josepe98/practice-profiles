@@ -1,0 +1,23 @@
+# Only frontend/ should be uploaded; exclude everything else at the repo root.
+backend/
+osrm/
+.firecrawl/
+.git/
+.claude/
+memory/
+.venv/
+venv/
+*.csv
+*.xlsx
+*.log
+*.py
+*.md
+__pycache__/
+*.pyc
+.DS_Store
+color-compare.html
+
+# Inside frontend/, skip generated/installed artifacts — Vercel rebuilds them.
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
