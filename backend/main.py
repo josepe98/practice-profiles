@@ -118,7 +118,8 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuthMiddleware)
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5174")
-_allowed_origins = [o.strip() for o in _raw_origins.split(",")]
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+print(f"[startup] CORS allow_origins = {_allowed_origins}", flush=True)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
