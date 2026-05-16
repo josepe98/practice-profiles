@@ -8,9 +8,7 @@ from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from rate_limiter import Limiter
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -53,7 +51,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 # ── Rate limiter ────────────────────────────────────────────────────────────────
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter()
 
 # ── App ─────────────────────────────────────────────────────────────────────────
 
@@ -68,9 +66,6 @@ with engine.connect() as _conn:
     _conn.commit()
 
 app = FastAPI(title="Practice Profiles API")
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 app.include_router(patient_origins_router)
 app.include_router(tccn_router)
 app.include_router(rvu_router)
