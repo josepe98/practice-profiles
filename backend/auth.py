@@ -1,44 +1,27 @@
 from __future__ import annotations
 
 import os
-import time
-from typing import Dict, Any
 
-import requests
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError, PyJWKClient
+from jwt.exceptions import PyJWKClientError
 from fastapi import Header, HTTPException, status
 
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 
-# Simple in-memory JWKS cache (keyed by kid, expires after 1 hour)
-_jwks_cache: Dict[str, Any] = {}
-_jwks_fetched_at: float = 0.0
-_JWKS_TTL = 3600  # seconds
+_JWKS_TTL = 3600
+_jwks_client: PyJWKClient | None = None
 
 
-def _get_jwks() -> list:
-    global _jwks_fetched_at
-    now = time.time()
-    if _jwks_cache and (now - _jwks_fetched_at) < _JWKS_TTL:
-        return list(_jwks_cache.values())
-    if not SUPABASE_URL:
-        return []
-    try:
-        resp = requests.get(
+def _get_jwks_client() -> PyJWKClient | None:
+    global _jwks_client
+    if _jwks_client is None and SUPABASE_URL:
+        _jwks_client = PyJWKClient(
             f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json",
-            timeout=10,
+            lifespan=_JWKS_TTL,
         )
-        resp.raise_for_status()
-        keys = resp.json().get("keys", [])
-        _jwks_cache.clear()
-        for k in keys:
-            _jwks_cache[k.get("kid", "default")] = k
-        _jwks_fetched_at = now
-        return keys
-    except Exception as e:
-        print(f"[auth] Failed to fetch JWKS: {e}")
-        return []
+    return _jwks_client
 
 
 def require_auth(authorization: str = Header(default=None)) -> dict:
@@ -58,21 +41,20 @@ def require_auth(authorization: str = Header(default=None)) -> dict:
                 options={"verify_aud": False},
             )
         elif alg in ("RS256", "ES256"):
-            kid = header.get("kid")
-            keys = _get_jwks()
-            key = next((k for k in keys if k.get("kid") == kid), keys[0] if keys else None)
-            if not key:
-                raise JWTError("No matching public key found")
+            client = _get_jwks_client()
+            if not client:
+                raise InvalidTokenError("No JWKS client configured")
+            signing_key = client.get_signing_key_from_jwt(token)
             payload = jwt.decode(
                 token,
-                key,
+                signing_key.key,
                 algorithms=["RS256", "ES256"],
                 options={"verify_aud": False},
             )
         else:
-            raise JWTError(f"Unsupported algorithm: {alg}")
+            raise InvalidTokenError(f"Unsupported algorithm: {alg}")
 
         return payload
-    except JWTError as e:
+    except (InvalidTokenError, PyJWKClientError) as e:
         print(f"[auth] JWT validation failed: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
