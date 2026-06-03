@@ -67,6 +67,9 @@ class Limiter:
         return decorator
 
 
+default_limiter = Limiter()
+
+
 def _get_request(args, kwargs) -> Request:
     if "request" in kwargs:
         return kwargs["request"]

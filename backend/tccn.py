@@ -7,11 +7,12 @@ import sys
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
+from rate_limiter import default_limiter
 from models import Practice, TccnDirectoryEntry, TccnExclusion
 
 _STOP  = re.compile(r"\b(llc|pc|inc|corp|pllc|pa|md|do|dba|of|the|and|at|an|a)\b")
@@ -33,12 +34,14 @@ router = APIRouter(prefix="/api/tccn", tags=["tccn"])
 # ── Scrape trigger ─────────────────────────────────────────────────────────────
 
 @router.post("/scrape")
-def trigger_scrape():
+@default_limiter.limit("2/hour")
+def trigger_scrape(request: Request):
     result = subprocess.run(
         [sys.executable, "scrape_tccn.py"],
         capture_output=True,
         text=True,
         cwd=__file__.rsplit("/", 1)[0],
+        timeout=300,
     )
     return {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
 

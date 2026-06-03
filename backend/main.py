@@ -8,7 +8,7 @@ from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from rate_limiter import Limiter
+from rate_limiter import Limiter, default_limiter
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -51,7 +51,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 # ── Rate limiter ────────────────────────────────────────────────────────────────
 
-limiter = Limiter()
+limiter = default_limiter
 
 # ── App ─────────────────────────────────────────────────────────────────────────
 
@@ -119,8 +119,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ── Generic error handler (no stack traces to client) ──────────────────────────
@@ -222,7 +222,7 @@ def download_template():
 # ── Distances ──────────────────────────────────────────────────────────────────
 
 @app.post("/api/distances", response_model=List[DistanceResult])
-@limiter.limit("30/minute")
+@limiter.limit("10/minute")
 def get_distances(request: Request, req: DistanceRequest, db: Session = Depends(get_db)):
     origin = crud.get_practice(db, req.origin_id)
     if not origin:
