@@ -48,7 +48,7 @@ How practice data for each affiliation was originally obtained:
 
 ## Tech Stack
 
-- **Backend**: Python 3.11 (Railway) / 3.12 (local) + FastAPI + SQLAlchemy
+- **Backend**: Python 3.12 (Railway and local) + FastAPI + SQLAlchemy
 - **Frontend**: React + Vite + Mapbox GL JS
 - **Routing**: Mapbox Matrix API (drive times + distances, batched in groups of 24)
 - **Geocoding**: Mapbox Geocoding API
