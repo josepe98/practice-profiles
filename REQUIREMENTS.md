@@ -59,7 +59,7 @@ How practice data for each affiliation was originally obtained:
 
 ### Deployment
 - **Backend**: Railway → `https://practice-profiles-production.up.railway.app` — auto-deploys on push to main
-- **Frontend**: Vercel → `https://practice-profiles.vercel.app` — **not auto-deployed from GitHub** (team-membership mismatch); merging to main does not publish a release
+- **Frontend**: Vercel → `https://practice-profiles.vercel.app` — auto-deploys on push to main
 - There is no local running instance. SQLite support has been removed.
 
 ### Development workflow
