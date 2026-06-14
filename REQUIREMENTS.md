@@ -424,7 +424,7 @@ All access is gated behind Supabase Auth. There is no public registration — ac
 
 ## Known Constraints / Gotchas
 
-- **Python 3.9**: use `from __future__ import annotations` + `typing` module; no `X | Y` union syntax or `list[X]` at runtime
+- **Python 3.12**: Modern syntax (PEP 604 unions `X | Y`, PEP 585 `list[X]`) is available at runtime. Some files still use `from __future__ import annotations` for consistency, but it's no longer required.
 - **Mapbox Matrix**: max 25 coordinates per request (1 source + 24 destinations); batch accordingly
 - **Mapbox Isochrone**: profile=`driving`, contours_minutes param; returns GeoJSON FeatureCollection
 - **TIGER API**: may return tracts from multiple states if bounding box crosses state line
