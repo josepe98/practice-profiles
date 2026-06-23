@@ -262,7 +262,7 @@ export default function Sidebar({
 
         {/* Candidate list */}
         {(candidatePOIs?.length ?? 0) > 0 && (
-          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 6, marginBottom: 8 }}>
+          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 6, marginBottom: 8, maxHeight: 180, overflowY: "auto" }}>
             {candidatePOIs.map((c) => {
               const practice = practices.find((p) => p.id === c.practice_id);
               return (
