@@ -856,7 +856,7 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         existing[c.id] = { marker, el, hoverLabel };
       }
 
-      const display = showCandidatesRef.current ? "" : "none";
+      const display = showCandidatesRef.current ? "flex" : "none";
       for (const { el } of Object.values(existing)) {
         el.style.display = display;
       }
@@ -867,7 +867,7 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
 
   // Toggle candidate marker visibility
   useEffect(() => {
-    const display = showCandidates ? "" : "none";
+    const display = showCandidates ? "flex" : "none";
     for (const { el } of Object.values(candidateMarkerMapRef.current)) {
       el.style.display = display;
     }
