@@ -768,7 +768,7 @@ export default function Map({ practices, originId, filteredIds, hiddenAffiliatio
         if (existing[c.id]) continue;
 
         const el = document.createElement("div");
-        el.style.cssText = "width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;overflow:visible;";
+        el.style.cssText = "width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:absolute;overflow:visible;";
 
         const diamond = document.createElement("div");
         diamond.style.cssText = `
