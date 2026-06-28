@@ -48,7 +48,7 @@ How practice data for each affiliation was originally obtained:
 
 ## Tech Stack
 
-- **Backend**: Python 3.11 (Railway) / 3.12 (local) + FastAPI + SQLAlchemy
+- **Backend**: Python 3.12 + FastAPI + SQLAlchemy
 - **Frontend**: React + Vite + Mapbox GL JS
 - **Routing**: Mapbox Matrix API (drive times + distances, batched in groups of 24)
 - **Geocoding**: Mapbox Geocoding API
@@ -59,7 +59,7 @@ How practice data for each affiliation was originally obtained:
 
 ### Deployment
 - **Backend**: Railway → `https://practice-profiles-production.up.railway.app` — auto-deploys on push to main
-- **Frontend**: Vercel → `https://practice-profiles.vercel.app` — **not auto-deployed from GitHub** (team-membership mismatch); merging to main does not publish a release
+- **Frontend**: Vercel → `https://practice-profiles.vercel.app` — auto-deploys on push to main
 - There is no local running instance. SQLite support has been removed.
 
 ### Development workflow
