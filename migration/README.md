@@ -10,11 +10,11 @@ Everything we'd lose if the Supabase project (`mnolwntsggaofuwyigej`) is paused 
 ## 1. Database dump
 
 ```bash
-export DATABASE_URL_DIRECT='postgresql://postgres.mnolwntsggaofuwyigej:yXojHOVYPvt0zuLF@aws-1-us-east-1.pooler.supabase.com:5432/postgres'
+export DATABASE_URL_DIRECT='postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres'
 ./migration/export.sh
 ```
 
-postgresql://postgres.mnolwntsggaofuwyigej:yXojHOVYPvt0zuLF@aws-1-us-east-1.pooler.supabase.com:5432/postgres
+Find your direct connection string in Supabase Dashboard → Project Settings → Database → "Direct connection" or "Session pooler".
 
 Writes to `migration/dumps/` (gitignored):
 
