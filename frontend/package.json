@@ -9,14 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.112.1",
-    "mapbox-gl": "3.28.0",
+    "@supabase/supabase-js": "2.112.4",
+    "mapbox-gl": "3.29.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "ws": "^8.21.2"
+    "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "6.0.5",
-    "vite": "^8.2.0"
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "^8.2.2"
   }
 }
