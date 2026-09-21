@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",
-    "mapbox-gl": "3.30.0",
+    "mapbox-gl": "3.31.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "ws": "^8.21.3"
